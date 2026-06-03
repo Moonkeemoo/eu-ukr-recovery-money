@@ -4,24 +4,43 @@ from . import config
 from .clients import CachedClient
 
 
-def pull_prozorro(cache_dir: Path, max_pages: int = 50) -> list[dict]:
-    """Pull ProZorro OCDS contracts, filtered to reconstruction CPVs."""
+def pull_prozorro(cache_dir: Path, target: int = config.PROZORRO_TARGET,
+                  scan_cap: int = config.PROZORRO_SCAN_CAP) -> list[dict]:
+    """Walk the ProZorro contracts change-feed newest-first, fetch each full contract,
+    and keep those with a reconstruction-CPV item. Stops at `target` kept or `scan_cap`
+    scanned."""
     out: list[dict] = []
+    scanned = 0
+    offset = None
     with CachedClient(cache_dir / "prozorro") as client:
-        page = 0
-        while page < max_pages:
-            data = client.get_json(
-                f"{config.PROZORRO_OCDS}/contracts",
-                params={"opt_schema": "ocds", "page": page},
-            )
-            rows = data.get("data") or []
-            if not rows:
+        while scanned < scan_cap and len(out) < target:
+            params = {"descending": "1"}
+            if offset:
+                params["offset"] = offset
+            feed = client.get_json(f"{config.PROZORRO_OCDS}/contracts", params=params)
+            stubs = feed.get("data") or []
+            if not stubs:
                 break
-            for row in rows:
-                items = row.get("items") or []
+            for stub in stubs:
+                if scanned >= scan_cap or len(out) >= target:
+                    break
+                scanned += 1
+                cid = stub.get("id")
+                if not cid:
+                    continue
+                try:
+                    rec = client.get_json(f"{config.PROZORRO_OCDS}/contracts/{cid}")
+                except Exception:
+                    continue  # skip a contract that fails to fetch; keep walking
+                data = rec.get("data") or {}
+                items = data.get("items") or []
                 if any(config.cpv_in_scope((it.get("classification") or {}).get("id")) for it in items):
-                    out.append(row)
-            page += 1
+                    out.append(data)
+            new_offset = (feed.get("next_page") or {}).get("offset")
+            if not new_offset or new_offset == offset:
+                break
+            offset = new_offset
+    print(f"ProZorro: scanned {scanned} contracts, kept {len(out)} in-scope")
     return out
 
 

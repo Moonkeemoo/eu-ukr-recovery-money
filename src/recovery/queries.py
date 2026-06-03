@@ -71,15 +71,24 @@ def supplier(out_dir: Path, edrpou: str) -> dict:
     return {"edrpou": edrpou, "contracts": rows}
 
 
-def gaps(out_dir: Path, gap_type: str = "contract_no_payment") -> list[dict]:
+def gaps(out_dir: Path, gap_type: str = "contract_no_payment",
+         sector: str | None = None, region: str | None = None) -> list[dict]:
     con = _conn(out_dir)
-    rows = con.execute(
-        "SELECT contract_id, supplier_name, cpv_div, region, contract_amount_uah, state "
-        "FROM chain WHERE state = ?",
-        [gap_type],
+    clauses, params = ["state = ?"], [gap_type]
+    if sector:
+        clauses.append("cpv_div = ?")
+        params.append(sector)
+    if region:
+        clauses.append("region = ?")
+        params.append(region)
+    where = "WHERE " + " AND ".join(clauses)
+    result = con.execute(
+        "SELECT contract_id, supplier_name, supplier_edrpou, cpv_div, region, "
+        f"contract_amount_uah, state FROM chain {where}",
+        params,
     ).to_arrow_table().to_pylist()
     con.close()
-    return rows
+    return result
 
 
 def funnel(out_dir: Path) -> list[dict]:

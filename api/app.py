@@ -27,8 +27,9 @@ def get_supplier(edrpou: str):
 
 
 @app.get("/api/gaps")
-def get_gaps(gap_type: str = Query("contract_no_payment", alias="type")):
-    return queries.gaps(config.OUT_DIR, gap_type=gap_type)
+def get_gaps(gap_type: str = Query("contract_no_payment", alias="type"),
+             sector: str | None = None, region: str | None = None):
+    return queries.gaps(config.OUT_DIR, gap_type=gap_type, sector=sector, region=region)
 
 
 @app.get("/api/funnel")

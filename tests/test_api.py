@@ -102,3 +102,11 @@ def test_top_regions_endpoint(tmp_path, monkeypatch):
     resp = client.get("/api/top?by=region")
     assert resp.status_code == 200
     assert "region" in resp.json()[0]
+
+
+def test_gaps_endpoint_sector_filter(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/gaps?type=contract_no_payment&sector=45")
+    assert resp.status_code == 200
+    assert resp.json() == []

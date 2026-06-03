@@ -135,3 +135,13 @@ def test_top_supplier_sector_filter(tmp_path):
     rows = top(tmp_path, by="supplier", sector="45")
     assert len(rows) == 1
     assert rows[0]["edrpou"] == "1"
+
+
+def test_gaps_filtered_by_sector(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import gaps
+    assert gaps(tmp_path, gap_type="contract_no_payment", sector="45") == []
+    rows = gaps(tmp_path, gap_type="contract_no_payment", sector="71")
+    assert len(rows) == 1
+    assert rows[0]["contract_id"] == "c2"
+    assert rows[0]["supplier_edrpou"] == "2"

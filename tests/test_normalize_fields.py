@@ -17,6 +17,7 @@ def test_normalize_company_name():
     assert normalize_company_name("LLC  Build  Co.") == "build co"
     assert normalize_company_name('Приватне підприємство «Шлях»') == "шлях"
     assert normalize_company_name(None) == ""
+    assert normalize_company_name("  A   B  ") == "a b"
 
 
 def test_cpv_division():

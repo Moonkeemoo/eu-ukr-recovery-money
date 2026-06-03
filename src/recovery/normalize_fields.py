@@ -15,7 +15,7 @@ _WS = re.compile(r"\s+")
 
 # Pre-compile phrase patterns (word-boundary-aware, case-insensitive already handled by lowercasing).
 _PHRASE_RE = re.compile(
-    "|".join(re.escape(p) for p in _LEGAL_PHRASES),
+    r"\b(?:" + "|".join(re.escape(p) for p in _LEGAL_PHRASES) + r")\b",
     flags=re.UNICODE,
 )
 

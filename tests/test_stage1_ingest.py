@@ -68,6 +68,28 @@ def test_pull_prozorro_stops_at_target(tmp_path):
 
 
 @respx.mock
+def test_pull_prozorro_respects_scan_cap(tmp_path):
+    feed = {"data": [{"id": "c1"}, {"id": "c2"}, {"id": "c3"}],
+            "next_page": {"offset": "OFF2"}}
+
+    def contract(cid):
+        return {"data": {"contractID": cid,
+            "items": [{"classification": {"id": "45000000-7"}}],
+            "suppliers": [{"name": "X", "identifier": {"id": "1"}}],
+            "value": {"amount": 1}}}
+    contracts = {"c1": contract("UA-1"), "c2": contract("UA-2"), "c3": contract("UA-3")}
+
+    def handler(request):
+        if request.url.path.endswith("/contracts"):
+            return httpx.Response(200, json=feed)
+        return httpx.Response(200, json=contracts[request.url.path.rsplit("/", 1)[-1]])
+
+    respx.route(host="public-api.prozorro.gov.ua").mock(side_effect=handler)
+    out = pull_prozorro(cache_dir=tmp_path, target=100, scan_cap=2)
+    assert len(out) == 2  # scanned only 2 of 3 stubs before hitting scan_cap
+
+
+@respx.mock
 def test_pull_spending_returns_records(tmp_path):
     page = json.loads((FIX / "spending_page.json").read_text(encoding="utf-8"))
     respx.get(url__startswith="https://api.spending.gov.ua").mock(

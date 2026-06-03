@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import httpx
+
 from . import config
 from .clients import CachedClient
 
@@ -24,13 +26,13 @@ def pull_prozorro(cache_dir: Path, target: int = config.PROZORRO_TARGET,
             for stub in stubs:
                 if scanned >= scan_cap or len(out) >= target:
                     break
-                scanned += 1
                 cid = stub.get("id")
                 if not cid:
                     continue
+                scanned += 1
                 try:
                     rec = client.get_json(f"{config.PROZORRO_OCDS}/contracts/{cid}")
-                except Exception:
+                except httpx.HTTPError:
                     continue  # skip a contract that fails to fetch; keep walking
                 data = rec.get("data") or {}
                 items = data.get("items") or []

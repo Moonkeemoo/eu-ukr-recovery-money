@@ -15,7 +15,16 @@ class CachedClient:
         self.max_retries = max_retries
         self._client = httpx.Client(timeout=30.0)
 
-    def _key(self, method: str, url: str, params, body) -> Path:
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> "CachedClient":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+    def _key(self, method: str, url: str, params: dict | None, body: dict | None) -> Path:
         raw = json.dumps([method, url, params, body], sort_keys=True, ensure_ascii=False)
         digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:24]
         return self.cache_dir / f"{digest}.json"

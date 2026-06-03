@@ -95,3 +95,9 @@ def test_breakdown_filtered(tmp_path):
     rows = breakdown(tmp_path, sector="45")
     assert len(rows) == 1
     assert rows[0]["state"] == "full"
+
+
+def test_breakdown_empty_returns_list(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import breakdown
+    assert breakdown(tmp_path, sector="99") == []

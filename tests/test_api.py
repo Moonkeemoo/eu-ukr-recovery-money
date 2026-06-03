@@ -77,3 +77,5 @@ def test_breakdown_endpoint(tmp_path, monkeypatch):
     assert resp.status_code == 200
     states = {r["state"] for r in resp.json()}
     assert "full" in states
+    full = next(r for r in resp.json() if r["state"] == "full")
+    assert "count" in full and "contracted_uah" in full and "paid_uah" in full

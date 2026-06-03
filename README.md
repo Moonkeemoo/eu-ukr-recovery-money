@@ -35,19 +35,26 @@ source .venv/bin/activate
 
 pip install -e ".[dev]"
 
-# 2. Run the pipeline (fetches live APIs, caches responses on disk)
+# 2a. Run the full pipeline (fetches live APIs, caches responses on disk)
 python run.py
 
 # Limit pages during development (faster, smaller dataset):
 python run.py --max-pages 5
 
-# 3. Serve the UI
+# 2b. OR — seed synthetic demo data (no live API required)
+#     Populates data/out/ with a small realistic dataset so the dashboard
+#     can be explored without a live pull.
+python scripts/seed_demo.py
+
+# 3. Serve the dashboard
 uvicorn api.app:app --reload
 
 # Open http://127.0.0.1:8000/
 ```
 
 Data is a **one-time snapshot** — re-running `run.py` replays from the on-disk cache (`data/cache/`) unless you delete it. The live APIs are unauthenticated public endpoints.
+
+> **Note on live ingest:** The TED v3 field names (`publication-number`, `winner-country`, etc.) and the spending.gov.ua request format should be verified against the live APIs before a production pull. See the "A note on exact API field names" section below.
 
 ---
 
@@ -65,9 +72,12 @@ Supporting modules:
 - `src/recovery/config.py` — API base URLs, CPV scope, 12-month window constant, output paths.
 - `src/recovery/clients.py` — `CachedClient`: httpx wrapper with SHA-256-keyed on-disk cache and exponential-backoff retry (3 attempts).
 - `src/recovery/normalize_fields.py` — `normalize_edrpou`, `normalize_company_name`, `cpv_division`.
-- `src/recovery/queries.py` — DuckDB query layer: `kpi`, `sankey`, `supplier`, `gaps`, `funnel`.
-- `api/app.py` — FastAPI app exposing the query layer at `/api/*` and serving `web/index.html` at `/`.
-- `web/index.html` — Ukrainian-language UI: KPI band, d3-sankey diagram, sector filter, gaps table.
+- `src/recovery/queries.py` — DuckDB query layer: `kpi`, `sankey`, `supplier`, `gaps`, `funnel`, `regions`, `breakdown`, `top`.
+- `api/app.py` — FastAPI app exposing the query layer at `/api/*`, serving `web/index.html` at `GET /`, and mounting `web/` as `/static/*`.
+- `web/index.html` — Dashboard HTML shell (Ukrainian language).
+- `web/styles.css` — Responsive styles: sticky header, KPI band, bar charts, table, modal.
+- `web/app.js` — Vanilla JS dashboard logic: filter wiring, section renderers, d3-sankey, supplier modal.
+- `scripts/seed_demo.py` — Writes synthetic demo `chain.parquet` and `funnel.parquet` to `data/out/` for UI exploration without a live API pull.
 
 ---
 
@@ -188,6 +198,36 @@ If the live API changes field names, **`src/recovery/stage2_normalize.py` is the
 
 ---
 
+## Dashboard
+
+The UI at `http://127.0.0.1:8000/` is a single-scroll responsive dashboard. It is a **no-build static bundle** (`web/index.html` + `web/styles.css` + `web/app.js`) served directly by FastAPI at `GET /` and `/static/*`. No Node.js, no bundler. JavaScript and d3 are loaded from CDN (`d3@7` and `d3-sankey@0.12`).
+
+### Layout (top to bottom)
+
+1. **Sticky combined filters** — a CPV sector dropdown (all / 45 construction / 71 engineering / 09 energy / 31 electrical / 34 transport) and a region dropdown populated dynamically from `GET /api/regions`. All sections below re-render on change with a 150 ms debounce.
+
+2. **KPI band** — four cards:
+   - Announced (TED), € — sum of `ted_amount_eur` for matched notices.
+   - Contracted, UAH — sum of `contract_amount_uah`.
+   - Paid, UAH — sum of `paid_amount_uah` with a "% of contracted" sub-label.
+   - Breaks (contract without payment) — count of `state = 'contract_no_payment'` rows.
+
+3. **Two-column row:**
+   - *Feasibility funnel* — horizontal bar chart of `GET /api/funnel` step counts (`contracts`, `with_payment`, `with_ted_overlay`). This panel is deliberately unfiltered (it shows whole-pipeline feasibility, not the current sector/region slice).
+   - *State breakdown bars* — horizontal bars from `GET /api/breakdown` showing count and contracted UAH for each chain state (`full`, `payment_no_ted`, `contract_no_payment`), colour-coded by state class.
+
+4. **Financial trail (Sankey)** — fluid `d3-sankey` diagram driven by `GET /api/sankey`. Nodes: "Оголошено (TED)" → "Законтрактовано" → "Виплачено". A note below the SVG explains whether TED data is present for the current slice. The diagram re-renders on container resize (ResizeObserver, 120 ms debounce).
+
+5. **Two-column row:**
+   - *Top suppliers* — table of top 10 suppliers by contracted UAH from `GET /api/top?by=supplier`. Each row is clickable and opens the supplier detail modal.
+   - *Top regions* — table of top 10 regions by contracted UAH from `GET /api/top?by=region`.
+
+6. **Gaps table** — sortable table of `state = 'contract_no_payment'` rows from `GET /api/gaps?type=contract_no_payment`. Columns: contract ID, supplier name, CPV division, region, contract amount UAH. Click any column header to sort ascending/descending. Each row is clickable and opens the supplier detail modal.
+
+7. **Supplier detail modal** — slide-in overlay triggered by clicking a supplier row in the top-suppliers table or the gaps table. Calls `GET /api/supplier/{edrpou}` and renders a per-contract table (contract ID, CPV, region, contracted UAH, paid UAH, TED notice, state). Rows with a TED match display a **"слабкий TED-збіг"** ("weak TED match") tag as a reminder that the match is heuristic (name + CPV division). Close by clicking the × button or the backdrop.
+
+---
+
 ## API endpoints
 
 Once `uvicorn api.app:app` is running:
@@ -195,11 +235,14 @@ Once `uvicorn api.app:app` is running:
 | Endpoint | Description |
 |----------|-------------|
 | `GET /api/kpi?sector=45&region=...` | Aggregate totals: contracted UAH, paid UAH, announced EUR, break count |
-| `GET /api/sankey?sector=45` | Sankey node/link data for the d3 diagram |
+| `GET /api/sankey?sector=45&region=...` | Sankey node/link data for the d3 diagram |
 | `GET /api/supplier/{edrpou}` | Per-supplier contract list |
-| `GET /api/gaps?type=contract_no_payment` | Contracts matching the given gap state |
-| `GET /api/funnel` | Feasibility funnel step counts |
-| `GET /` | Ukrainian UI (served from `web/index.html`) |
+| `GET /api/gaps?type=contract_no_payment&sector=&region=` | Contracts matching the given gap state; returns `contract_id`, `supplier_name`, `supplier_edrpou`, `cpv_div`, `region`, `contract_amount_uah`, `state` |
+| `GET /api/funnel` | Feasibility funnel step counts (`contracts`, `with_payment`, `with_ted_overlay`) — not filtered by sector/region |
+| `GET /api/regions` | Sorted list of distinct region strings present in `chain.parquet` |
+| `GET /api/breakdown?sector=&region=` | Per-state row counts and contracted/paid UAH totals; used for the state breakdown bar chart |
+| `GET /api/top?by=supplier\|region&sector=&region=&limit=10` | Top suppliers (by contracted UAH) or top regions; `limit` is 1–200, default 10 |
+| `GET /` | Dashboard (served from `web/index.html`) |
 
 ---
 
@@ -211,7 +254,11 @@ Once `uvicorn api.app:app` is running:
 ├── api/
 │   └── app.py                    # FastAPI application
 ├── web/
-│   └── index.html                # Ukrainian Sankey UI
+│   ├── index.html                # Dashboard HTML shell (Ukrainian)
+│   ├── styles.css                # Responsive dashboard styles
+│   └── app.js                    # Vanilla JS dashboard logic + d3-sankey
+├── scripts/
+│   └── seed_demo.py              # Seed synthetic demo data (no live pull needed)
 ├── src/recovery/
 │   ├── config.py                 # Constants and API hosts
 │   ├── clients.py                # CachedClient (httpx + disk cache)

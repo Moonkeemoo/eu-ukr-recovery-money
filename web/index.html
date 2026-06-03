@@ -39,28 +39,38 @@
   </tr></thead><tbody></tbody></table>
 
   <script>
+    const esc = s => (s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     const fmt = n => new Intl.NumberFormat("uk-UA").format(n);
 
     async function refresh() {
-      const sector = document.getElementById("sector").value;
-      const q = sector ? `?sector=${sector}` : "";
+      try {
+        const sector = document.getElementById("sector").value;
+        const q = sector ? `?sector=${sector}` : "";
 
-      const kpi = await (await fetch(`/api/kpi${q}`)).json();
-      document.getElementById("kpi").innerHTML = `
+        const [kpi, data, gaps] = await Promise.all([
+          fetch(`/api/kpi${q}`).then(r => r.json()),
+          fetch(`/api/sankey${q}`).then(r => r.json()),
+          fetch(`/api/gaps?type=contract_no_payment`).then(r => r.json()),
+        ]);
+
+        document.getElementById("kpi").innerHTML = `
         <div>Оголошено (TED), €<b>${fmt(kpi.announced_eur)}</b></div>
         <div>Законтрактовано, грн<b>${fmt(kpi.contracted_uah)}</b></div>
         <div>Виплачено, грн<b>${fmt(kpi.paid_uah)}</b></div>
         <div class="break">Обриви<b>${fmt(kpi.breaks)}</b></div>`;
 
-      const data = await (await fetch(`/api/sankey${q}`)).json();
-      drawSankey(data);
+        drawSankey(data);
 
-      const gaps = await (await fetch(`/api/gaps?type=contract_no_payment`)).json();
-      const tbody = document.querySelector("#gaps tbody");
-      tbody.innerHTML = gaps.map(g => `<tr>
-        <td>${g.contract_id}</td><td>${g.supplier_name ?? ""}</td>
-        <td>${g.cpv_div ?? ""}</td><td>${g.region ?? ""}</td>
+        const tbody = document.querySelector("#gaps tbody");
+        tbody.innerHTML = gaps.map(g => `<tr>
+        <td>${esc(g.contract_id)}</td><td>${esc(g.supplier_name)}</td>
+        <td>${esc(g.cpv_div)}</td><td>${esc(g.region)}</td>
         <td>${fmt(g.contract_amount_uah ?? 0)}</td></tr>`).join("");
+      } catch (e) {
+        console.error(e);
+        document.getElementById("kpi").innerHTML =
+          '<div class="break"><b>Дані ще не згенеровано — запустіть пайплайн (python run.py)</b></div>';
+      }
     }
 
     function drawSankey(data) {

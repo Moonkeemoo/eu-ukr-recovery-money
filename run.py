@@ -13,7 +13,7 @@ def main(max_pages: int = 50) -> None:
     raw_pz = stage1.pull_prozorro(cache_dir=config.CACHE_DIR, max_pages=max_pages)
     contracts = normalize_prozorro(raw_pz)
 
-    edrpous = [e for e in contracts["supplier_edrpou"].drop_nulls().unique().to_list()]
+    edrpous = contracts["supplier_edrpou"].drop_nulls().unique().to_list()
     raw_sp = stage1.pull_spending(cache_dir=config.CACHE_DIR, edrpous=edrpous, max_pages=max_pages)
     spending = normalize_spending(raw_sp)
 

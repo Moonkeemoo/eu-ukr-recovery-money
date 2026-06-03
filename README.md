@@ -268,7 +268,7 @@ Once `uvicorn api.app:app` is running:
 │   ├── stage3_join.py            # Core join + TED overlay
 │   ├── stage4_chain.py           # State tagging + funnel
 │   └── queries.py                # DuckDB query layer
-├── tests/                        # pytest suite (31 tests)
+├── tests/                        # pytest suite (47 tests)
 ├── data/
 │   ├── cache/                    # On-disk API response cache
 │   └── out/                      # Parquet artifacts

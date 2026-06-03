@@ -187,7 +187,7 @@ async function refresh() {
     const qs = q();
     const [kpi, funnel, brk, sankey, sup, reg, gaps] = await Promise.all([
       getJSON(`/api/kpi${qs}`),
-      getJSON(`/api/funnel`),
+      getJSON(`/api/funnel`),  // funnel is unfiltered by design (whole-pipeline feasibility)
       getJSON(`/api/breakdown${qs}`),
       getJSON(`/api/sankey${qs}`),
       getJSON(`/api/top?by=supplier${qs ? "&" + qs.slice(1) : ""}`),
@@ -240,7 +240,9 @@ function wire() {
     if (e.target.id === "modal-backdrop") close();
   });
   let rt;
+  let sankeyObserved = false;
   new ResizeObserver(() => {
+    if (!sankeyObserved) { sankeyObserved = true; return; }  // skip initial fire; refresh() does first render
     clearTimeout(rt);
     rt = setTimeout(() => getJSON(`/api/sankey${q()}`).then(renderSankey).catch(() => {}), 120);
   }).observe(document.getElementById("sankey"));

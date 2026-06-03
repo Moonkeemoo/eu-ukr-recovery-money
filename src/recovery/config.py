@@ -10,6 +10,12 @@ CPV_DIVISIONS = ("45", "71", "09", "31", "34")
 # Snapshot window: how many months back from today to ingest.
 WINDOW_MONTHS = 12
 
+# Real-data ingest bounds (see docs/superpowers/specs/2026-06-03-real-data-ingest-design.md)
+PROZORRO_TARGET = 500       # stop after this many in-scope contracts
+PROZORRO_SCAN_CAP = 1500    # stop after scanning this many feed stubs
+SPENDING_BATCH = 20         # recipient EDRPOUs per spending request
+SPENDING_WINDOW_DAYS = 90   # spending date window (API hard limit is 92)
+
 # API hosts (all unauthenticated for reading).
 PROZORRO_OCDS = "https://public-api.prozorro.gov.ua/api/2.5"
 SPENDING_API = "https://api.spending.gov.ua/api"

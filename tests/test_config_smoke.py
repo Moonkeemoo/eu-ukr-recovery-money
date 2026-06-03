@@ -12,3 +12,10 @@ def test_cpv_in_scope():
 def test_paths_exist_as_config():
     assert config.CPV_DIVISIONS == ("45", "71", "09", "31", "34")
     assert config.OUT_DIR.name == "out"
+
+
+def test_ingest_bounds_present():
+    assert config.PROZORRO_TARGET == 500
+    assert config.PROZORRO_SCAN_CAP == 1500
+    assert config.SPENDING_BATCH == 20
+    assert config.SPENDING_WINDOW_DAYS == 90

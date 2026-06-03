@@ -70,3 +70,9 @@ def test_kpi_empty_sector_no_crash(tmp_path):
 def test_gaps_empty_returns_list(tmp_path):
     _seed(tmp_path)
     assert gaps(tmp_path, gap_type="nonexistent_state") == []
+
+
+def test_regions_distinct_sorted(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import regions
+    assert regions(tmp_path) == ["Київ", "Львів"]

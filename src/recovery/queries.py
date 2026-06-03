@@ -90,3 +90,13 @@ def funnel(out_dir: Path) -> list[dict]:
     ).to_arrow_table().to_pylist()
     con.close()
     return rows
+
+
+def regions(out_dir: Path) -> list[str]:
+    con = _conn(out_dir)
+    rows = con.execute(
+        "SELECT DISTINCT region FROM chain "
+        "WHERE region IS NOT NULL AND region <> '' ORDER BY region"
+    ).fetchall()
+    con.close()
+    return [r[0] for r in rows]

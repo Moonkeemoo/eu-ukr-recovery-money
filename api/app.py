@@ -35,6 +35,11 @@ def get_funnel():
     return queries.funnel(config.OUT_DIR)
 
 
+@app.get("/api/regions")
+def get_regions():
+    return queries.regions(config.OUT_DIR)
+
+
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "index.html")

@@ -1,0 +1,6 @@
+{"data": [{"id": "ocds-1", "contractID": "UA-2025-09-01-000001",
+  "procuringEntity": {"identifier": {"id": "31517060", "scheme": "UA-EDR"}},
+  "suppliers": [{"name": "ТОВ \"Шлях\"", "identifier": {"id": "31725604", "scheme": "UA-EDR"}}],
+  "value": {"amount": 1000000, "currency": "UAH"},
+  "items": [{"classification": {"scheme": "CPV", "id": "45233140-2"},
+             "deliveryAddress": {"region": "Київська область"}}]}]}

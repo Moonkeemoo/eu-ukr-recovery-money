@@ -42,3 +42,13 @@ def test_normalize_ted():
     assert row["cpv_div"] == "45"
     assert row["winner_name_norm"] == "bud"
     assert row["amount_eur"] == 500000
+
+
+def test_normalize_empty_input_keeps_schema():
+    assert normalize_prozorro([]).columns == [
+        "contract_id", "cpv", "cpv_div", "supplier_edrpou", "supplier_name",
+        "supplier_name_norm", "amount_uah", "region", "redacted",
+    ]
+    assert normalize_spending([]).height == 0
+    assert normalize_ted([]).height == 0
+    assert "ted_id" in normalize_ted([]).columns

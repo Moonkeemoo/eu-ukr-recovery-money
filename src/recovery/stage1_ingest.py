@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 import httpx
@@ -46,22 +47,45 @@ def pull_prozorro(cache_dir: Path, target: int = config.PROZORRO_TARGET,
     return out
 
 
-def pull_spending(cache_dir: Path, edrpous: list[str], max_pages: int = 50) -> list[dict]:
-    """Pull spending transactions for the given recipient EDRPOUs."""
+def _quarter_windows(today: date, months: int, window_days: int) -> list[tuple[str, str]]:
+    """Contiguous (startdate, enddate) ISO pairs covering the last `months`, each spanning
+    at most `window_days` days (the spending API caps a query at 92 days)."""
+    start_all = today - timedelta(days=months * 30)
+    windows: list[tuple[str, str]] = []
+    cur_end = today
+    while cur_end > start_all:
+        cur_start = max(start_all, cur_end - timedelta(days=window_days))
+        windows.append((cur_start.isoformat(), cur_end.isoformat()))
+        cur_end = cur_start - timedelta(days=1)
+    return windows
+
+
+def pull_spending(cache_dir: Path, edrpous: list[str],
+                  batch: int = config.SPENDING_BATCH,
+                  window_days: int = config.SPENDING_WINDOW_DAYS,
+                  months: int = config.WINDOW_MONTHS,
+                  today: date | None = None) -> list[dict]:
+    """Pull treasury transactions for the given recipient EDRPOUs, batching EDRPOUs into
+    `recipt_edrpous` and chunking the date range into <=`window_days` windows."""
+    if today is None:
+        today = date.today()
+    uniq = sorted({e for e in edrpous if e})
+    windows = _quarter_windows(today, months, window_days)
     out: list[dict] = []
     with CachedClient(cache_dir / "spending") as client:
-        for edrpou in edrpous:
-            page = 0
-            while page < max_pages:
-                data = client.get_json(
-                    f"{config.SPENDING_API}/v2/api/transactions",
-                    params={"recipt_edrpou": edrpou, "page": page},
-                )
-                rows = data.get("items") or data.get("transactions") or []
-                if not rows:
-                    break
-                out.extend(rows)
-                page += 1
+        for i in range(0, len(uniq), batch):
+            recipt = ",".join(uniq[i:i + batch])
+            for start, end in windows:
+                try:
+                    rows = client.get_json(
+                        f"{config.SPENDING_API}/v2/api/transactions/",
+                        params={"recipt_edrpous": recipt, "startdate": start, "enddate": end},
+                    )
+                except httpx.HTTPError:
+                    continue  # skip a failed batch/window; keep going
+                if isinstance(rows, list):
+                    out.extend(rows)
+    print(f"spending: queried {len(uniq)} EDRPOUs over {len(windows)} windows, {len(out)} rows")
     return out
 
 

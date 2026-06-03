@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from pathlib import Path
 
 import httpx
@@ -90,14 +91,33 @@ def test_pull_prozorro_respects_scan_cap(tmp_path):
 
 
 @respx.mock
-def test_pull_spending_returns_records(tmp_path):
-    page = json.loads((FIX / "spending_page.json").read_text(encoding="utf-8"))
-    respx.get(url__startswith="https://api.spending.gov.ua").mock(
-        return_value=httpx.Response(200, json=page)
-    )
-    records = pull_spending(cache_dir=tmp_path, edrpous=["31725604"], max_pages=1)
-    assert len(records) == 1
-    assert records[0]["recipt_edrpou"] == "31725604"
+def test_pull_spending_batches_edrpous_and_windows(tmp_path):
+    seen = []
+
+    def handler(request):
+        seen.append({
+            "recipt_edrpous": request.url.params.get("recipt_edrpous"),
+            "startdate": request.url.params.get("startdate"),
+            "enddate": request.url.params.get("enddate"),
+        })
+        edr = request.url.params.get("recipt_edrpous").split(",")[0]
+        return httpx.Response(200, json=[{
+            "id": 1, "recipt_edrpou": edr, "recipt_name": "X",
+            "amount": 10.0, "trans_date": "2025-10-01", "payment_details": "y",
+        }])
+
+    respx.route(host="api.spending.gov.ua").mock(side_effect=handler)
+
+    out = pull_spending(cache_dir=tmp_path, edrpous=["1", "2", "3"],
+                        batch=2, window_days=90, months=12, today=date(2026, 6, 3))
+
+    assert len(seen) == 8                       # 2 batches x 4 quarterly windows
+    assert seen[0]["recipt_edrpous"] == "1,2"   # batched, comma-joined
+    assert any(s["recipt_edrpous"] == "3" for s in seen)
+    for s in seen:                              # every window within the 92-day API limit
+        span = (date.fromisoformat(s["enddate"]) - date.fromisoformat(s["startdate"])).days
+        assert span <= 90
+    assert len(out) == 8                        # bare-list rows concatenated
 
 
 @respx.mock

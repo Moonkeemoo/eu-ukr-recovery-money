@@ -44,3 +44,19 @@ def test_supplier_endpoint(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     resp = client.get("/api/supplier/1")
     assert resp.json()["contracts"][0]["contract_id"] == "c1"
+
+
+def test_gaps_endpoint(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/gaps?type=contract_no_payment")
+    assert resp.status_code == 200
+    assert resp.json() == []  # seed row is state="full", so no gaps
+
+
+def test_funnel_endpoint(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/funnel")
+    assert resp.status_code == 200
+    assert resp.json()[0]["step"] == "contracts"

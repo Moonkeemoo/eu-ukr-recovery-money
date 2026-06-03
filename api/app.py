@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -26,8 +26,8 @@ def get_supplier(edrpou: str):
 
 
 @app.get("/api/gaps")
-def get_gaps(type: str = "contract_no_payment"):
-    return queries.gaps(config.OUT_DIR, gap_type=type)
+def get_gaps(gap_type: str = Query("contract_no_payment", alias="type")):
+    return queries.gaps(config.OUT_DIR, gap_type=gap_type)
 
 
 @app.get("/api/funnel")

@@ -48,7 +48,6 @@ def test_pipeline_ted_nonfatal(tmp_path, monkeypatch):
 
     run_module.main(target=1, scan_cap=1)
 
-    import polars as pl
     chain = pl.read_parquet(tmp_path / "chain.parquet")
     row = chain.to_dicts()[0]
     assert row["state"] == "payment_no_ted"

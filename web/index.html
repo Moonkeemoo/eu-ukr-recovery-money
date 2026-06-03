@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <title>Гроші на відбудову України</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 1.5rem; color: #1a1a1a; }
+    .kpi { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .kpi div { background: #f3f4f6; padding: .75rem 1rem; border-radius: .5rem; }
+    .kpi b { display: block; font-size: 1.25rem; }
+    select { padding: .35rem; }
+    .break { color: #b91c1c; }
+    table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
+    td, th { border: 1px solid #ddd; padding: .35rem .5rem; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <h1>Наскрізний слід грошей на відбудову України</h1>
+  <p>ProZorro → казначейські виплати (ядро) + TED overlay. Дані: разовий знімок, останні 12 міс.</p>
+
+  <label>Сектор CPV:
+    <select id="sector">
+      <option value="">усі</option>
+      <option value="45">45 — будівництво</option>
+      <option value="71">71 — інженерія</option>
+      <option value="09">09 — енергетика</option>
+      <option value="31">31 — електрообладнання</option>
+      <option value="34">34 — транспорт</option>
+    </select>
+  </label>
+
+  <div class="kpi" id="kpi"></div>
+  <svg id="sankey" width="900" height="320"></svg>
+  <h2>Обриви ланцюга (контракт без виплати)</h2>
+  <table id="gaps"><thead><tr>
+    <th>Контракт</th><th>Виконавець</th><th>CPV</th><th>Регіон</th><th>Сума, грн</th>
+  </tr></thead><tbody></tbody></table>
+
+  <script>
+    const fmt = n => new Intl.NumberFormat("uk-UA").format(n);
+
+    async function refresh() {
+      const sector = document.getElementById("sector").value;
+      const q = sector ? `?sector=${sector}` : "";
+
+      const kpi = await (await fetch(`/api/kpi${q}`)).json();
+      document.getElementById("kpi").innerHTML = `
+        <div>Оголошено (TED), €<b>${fmt(kpi.announced_eur)}</b></div>
+        <div>Законтрактовано, грн<b>${fmt(kpi.contracted_uah)}</b></div>
+        <div>Виплачено, грн<b>${fmt(kpi.paid_uah)}</b></div>
+        <div class="break">Обриви<b>${fmt(kpi.breaks)}</b></div>`;
+
+      const data = await (await fetch(`/api/sankey${q}`)).json();
+      drawSankey(data);
+
+      const gaps = await (await fetch(`/api/gaps?type=contract_no_payment`)).json();
+      const tbody = document.querySelector("#gaps tbody");
+      tbody.innerHTML = gaps.map(g => `<tr>
+        <td>${g.contract_id}</td><td>${g.supplier_name ?? ""}</td>
+        <td>${g.cpv_div ?? ""}</td><td>${g.region ?? ""}</td>
+        <td>${fmt(g.contract_amount_uah ?? 0)}</td></tr>`).join("");
+    }
+
+    function drawSankey(data) {
+      const svg = d3.select("#sankey"); svg.selectAll("*").remove();
+      const { nodes, links } = d3.sankey()
+        .nodeWidth(18).nodePadding(20)
+        .extent([[1, 1], [880, 300]])({
+          nodes: data.nodes.map(d => ({ ...d })),
+          links: data.links.map(d => ({ ...d })),
+        });
+      svg.append("g").selectAll("rect").data(nodes).join("rect")
+        .attr("x", d => d.x0).attr("y", d => d.y0)
+        .attr("height", d => Math.max(1, d.y1 - d.y0))
+        .attr("width", d => d.x1 - d.x0).attr("fill", "#2563eb");
+      svg.append("g").attr("fill", "none").selectAll("path").data(links).join("path")
+        .attr("d", d3.sankeyLinkHorizontal())
+        .attr("stroke", "#93c5fd")
+        .attr("stroke-width", d => Math.max(1, d.width)).attr("opacity", .6);
+      svg.append("g").selectAll("text").data(nodes).join("text")
+        .attr("x", d => d.x0 < 440 ? d.x1 + 6 : d.x0 - 6)
+        .attr("y", d => (d.y1 + d.y0) / 2).attr("dy", "0.35em")
+        .attr("text-anchor", d => d.x0 < 440 ? "start" : "end")
+        .text(d => d.name).style("font-size", "12px");
+    }
+
+    document.getElementById("sector").addEventListener("change", refresh);
+    refresh();
+  </script>
+</body>
+</html>

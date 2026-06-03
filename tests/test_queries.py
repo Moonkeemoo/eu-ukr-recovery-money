@@ -57,3 +57,16 @@ def test_gaps_lists_breaks(tmp_path):
 def test_funnel_passthrough(tmp_path):
     _seed(tmp_path)
     assert funnel(tmp_path)[0]["step"] == "contracts"
+
+
+def test_kpi_empty_sector_no_crash(tmp_path):
+    _seed(tmp_path)
+    k = kpi(tmp_path, sector="99")  # no rows match
+    assert k["contracted_uah"] == 0
+    assert k["paid_uah"] == 0
+    assert k["breaks"] == 0
+
+
+def test_gaps_empty_returns_list(tmp_path):
+    _seed(tmp_path)
+    assert gaps(tmp_path, gap_type="nonexistent_state") == []

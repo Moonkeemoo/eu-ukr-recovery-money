@@ -29,10 +29,11 @@ def kpi(out_dir: Path, sector: str | None = None, region: str | None = None) -> 
               COALESCE(SUM(contract_amount_uah), 0) AS contracted,
               COALESCE(SUM(paid_amount_uah), 0) AS paid,
               COALESCE(SUM(ted_amount_eur), 0) AS announced_eur,
-              SUM(CASE WHEN state = 'contract_no_payment' THEN 1 ELSE 0 END) AS breaks
+              COALESCE(SUM(CASE WHEN state = 'contract_no_payment' THEN 1 ELSE 0 END), 0) AS breaks
             FROM chain {where}""",
         params,
     ).fetchone()
+    con.close()
     return {
         "contracted_uah": int(row[0]), "paid_uah": int(row[1]),
         "announced_eur": int(row[2]), "breaks": int(row[3]),
@@ -50,6 +51,7 @@ def sankey(out_dir: Path, sector: str | None = None, region: str | None = None) 
             FROM chain {where}""",
         params,
     ).fetchone()
+    con.close()
     nodes = [{"name": "Оголошено (TED)"}, {"name": "Законтрактовано"}, {"name": "Виплачено"}]
     links = [
         {"source": 0, "target": 1, "value": int(row[1])},
@@ -65,21 +67,26 @@ def supplier(out_dir: Path, edrpou: str) -> dict:
         "ted_id, state FROM chain WHERE supplier_edrpou = ?",
         [edrpou],
     ).to_arrow_table().to_pylist()
+    con.close()
     return {"edrpou": edrpou, "contracts": rows}
 
 
 def gaps(out_dir: Path, gap_type: str = "contract_no_payment") -> list[dict]:
     con = _conn(out_dir)
-    return con.execute(
+    rows = con.execute(
         "SELECT contract_id, supplier_name, cpv_div, region, contract_amount_uah, state "
         "FROM chain WHERE state = ?",
         [gap_type],
     ).to_arrow_table().to_pylist()
+    con.close()
+    return rows
 
 
 def funnel(out_dir: Path) -> list[dict]:
     con = duckdb.connect(":memory:")
-    return con.execute(
+    rows = con.execute(
         "SELECT * FROM read_parquet(?)",
         [str(Path(out_dir) / "funnel.parquet")],
     ).to_arrow_table().to_pylist()
+    con.close()
+    return rows

@@ -7,18 +7,22 @@ from recovery.stage3_join import join_core, attach_ted_overlay
 from recovery.stage4_chain import build_chain, build_funnel
 
 
-def main(max_pages: int = 50) -> None:
+def main(target: int = config.PROZORRO_TARGET, scan_cap: int = config.PROZORRO_SCAN_CAP) -> None:
     config.OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    raw_pz = stage1.pull_prozorro(cache_dir=config.CACHE_DIR, max_pages=max_pages)
+    raw_pz = stage1.pull_prozorro(cache_dir=config.CACHE_DIR, target=target, scan_cap=scan_cap)
     contracts = normalize_prozorro(raw_pz)
 
     edrpous = contracts["supplier_edrpou"].drop_nulls().unique().to_list()
-    raw_sp = stage1.pull_spending(cache_dir=config.CACHE_DIR, edrpous=edrpous, max_pages=max_pages)
+    raw_sp = stage1.pull_spending(cache_dir=config.CACHE_DIR, edrpous=edrpous)
     spending = normalize_spending(raw_sp)
 
-    raw_ted = stage1.pull_ted(cache_dir=config.CACHE_DIR, max_pages=max_pages)
-    ted = normalize_ted(raw_ted)
+    try:
+        raw_ted = stage1.pull_ted(cache_dir=config.CACHE_DIR)
+        ted = normalize_ted(raw_ted)
+    except Exception as exc:  # TED v3 is best-effort; keep the pipeline running without it
+        print(f"TED ingest skipped (non-fatal): {exc}")
+        ted = normalize_ted([])
 
     contracts.write_parquet(config.OUT_DIR / "prozorro_contracts.parquet")
     spending.write_parquet(config.OUT_DIR / "spending_tx.parquet")
@@ -35,6 +39,9 @@ def main(max_pages: int = 50) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--max-pages", type=int, default=50)
+    parser.add_argument("--target", type=int, default=config.PROZORRO_TARGET,
+                        help="stop after this many in-scope contracts")
+    parser.add_argument("--scan-cap", type=int, default=config.PROZORRO_SCAN_CAP,
+                        help="stop after scanning this many feed stubs")
     args = parser.parse_args()
-    main(max_pages=args.max_pages)
+    main(target=args.target, scan_cap=args.scan_cap)

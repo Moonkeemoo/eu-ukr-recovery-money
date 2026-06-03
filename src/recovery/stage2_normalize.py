@@ -26,7 +26,8 @@ def normalize_prozorro(raw: list[dict]) -> pl.DataFrame:
         sup = suppliers[0]
         items = r.get("items") or [{}]
         cpv = (items[0].get("classification") or {}).get("id")
-        region = (items[0].get("deliveryAddress") or {}).get("region")
+        region = ((items[0].get("deliveryAddress") or {}).get("region")
+                  or (sup.get("address") or {}).get("region"))
         rows.append({
             "contract_id": r.get("contractID") or r.get("id"),
             "cpv": cpv,

@@ -52,3 +52,15 @@ def test_normalize_empty_input_keeps_schema():
     assert normalize_spending([]).height == 0
     assert normalize_ted([]).height == 0
     assert "ted_id" in normalize_ted([]).columns
+
+
+def test_normalize_prozorro_region_falls_back_to_supplier_address():
+    raw = [{
+        "contractID": "UA-9",
+        "items": [{"classification": {"id": "45233140-2"}}],  # no deliveryAddress
+        "suppliers": [{"name": "ТОВ \"Шлях\"", "identifier": {"id": "31725604"},
+                       "address": {"region": "Полтавська область"}}],
+        "value": {"amount": 1000},
+    }]
+    row = normalize_prozorro(raw).to_dicts()[0]
+    assert row["region"] == "Полтавська область"

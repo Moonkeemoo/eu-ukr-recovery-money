@@ -48,7 +48,8 @@ def get_breakdown(sector: str | None = None, region: str | None = None):
 
 @app.get("/api/top")
 def get_top(by: Literal["supplier", "region"] = "supplier",
-            sector: str | None = None, region: str | None = None, limit: int = 10):
+            sector: str | None = None, region: str | None = None,
+            limit: int = Query(default=10, ge=1, le=200)):
     return queries.top(config.OUT_DIR, by=by, sector=sector, region=region, limit=limit)
 
 

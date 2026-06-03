@@ -94,3 +94,11 @@ def test_top_invalid_by_rejected(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     resp = client.get("/api/top?by=bogus")
     assert resp.status_code == 422
+
+
+def test_top_regions_endpoint(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/top?by=region")
+    assert resp.status_code == 200
+    assert "region" in resp.json()[0]

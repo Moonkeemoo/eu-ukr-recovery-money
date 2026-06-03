@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from recovery.queries import sankey, kpi, supplier, gaps, funnel
 
@@ -103,9 +104,6 @@ def test_breakdown_empty_returns_list(tmp_path):
     assert breakdown(tmp_path, sector="99") == []
 
 
-import pytest
-
-
 def test_top_suppliers(tmp_path):
     _seed(tmp_path)
     from recovery.queries import top
@@ -129,3 +127,11 @@ def test_top_rejects_bad_by(tmp_path):
     from recovery.queries import top
     with pytest.raises(ValueError):
         top(tmp_path, by="supplier; DROP TABLE chain")
+
+
+def test_top_supplier_sector_filter(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    rows = top(tmp_path, by="supplier", sector="45")
+    assert len(rows) == 1
+    assert rows[0]["edrpou"] == "1"

@@ -2,6 +2,9 @@ import polars as pl
 
 
 def build_chain(joined: pl.DataFrame) -> pl.DataFrame:
+    # Note: the spec's `payment_no_contract` state is intentionally not produced here.
+    # Stage 3 is a contracts-left-join, so spending rows with no matching contract never
+    # reach `joined`; those are surfaced as gaps elsewhere, not in the chain.
     state = (
         pl.when((pl.col("paid_amount_uah") > 0) & pl.col("ted_id").is_not_null())
         .then(pl.lit("full"))

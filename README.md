@@ -35,15 +35,15 @@ source .venv/bin/activate
 
 pip install -e ".[dev]"
 
-# 2a. Run the full pipeline (fetches live APIs, caches responses on disk)
+# 2a. Run the full pipeline (live API pull, ~5–10 min first time)
 python run.py
 
-# Limit pages during development (faster, smaller dataset):
-python run.py --max-pages 5
+# Pull a smaller/faster sample during development:
+python run.py --target 200 --scan-cap 800
 
-# 2b. OR — seed synthetic demo data (no live API required)
+# 2b. OR — seed synthetic demo data (instant, no network required)
 #     Populates data/out/ with a small realistic dataset so the dashboard
-#     can be explored without a live pull.
+#     can be explored without any live API pull.
 python scripts/seed_demo.py
 
 # 3. Serve the dashboard
@@ -52,9 +52,28 @@ uvicorn api.app:app --reload
 # Open http://127.0.0.1:8000/
 ```
 
-Data is a **one-time snapshot** — re-running `run.py` replays from the on-disk cache (`data/cache/`) unless you delete it. The live APIs are unauthenticated public endpoints.
+### What `python run.py` actually does
 
-> **Note on live ingest:** The TED v3 field names (`publication-number`, `winner-country`, etc.) and the spending.gov.ua request format should be verified against the live APIs before a production pull. See the "A note on exact API field names" section below.
+`run.py` performs a **real live-API pull** across two sources:
+
+**ProZorro** — walks the `/contracts?descending=1` change-feed newest-first, fetches each full contract record, and keeps those whose CPV code belongs to a reconstruction division (45 / 71 / 09 / 31 / 34). The walk is bounded by two CLI flags:
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--target` | 500 | stop after this many in-scope contracts are collected |
+| `--scan-cap` | 1500 | hard cap on the total number of feed stubs scanned |
+
+**spending.gov.ua** — calls the real `/v2/api/transactions/` endpoint. Recipient EDRPOUs extracted from the kept contracts are batched 20 per request (`SPENDING_BATCH = 20`) and queried over the last 12 months, split into ≤90-day windows (`SPENDING_WINDOW_DAYS = 90`) to stay within the API's 92-day hard limit.
+
+All HTTP responses are cached under `data/cache/` (SHA-256-keyed, per `CachedClient`). **Re-runs are fast** — the network is only hit for cache misses.
+
+### TED is deferred and non-fatal
+
+The TED v3 search endpoint currently returns HTTP 400 for our CPV query format. `run.py` catches the error, logs `TED ingest skipped (non-fatal): ...`, and completes normally on ProZorro + spending data. The Sankey's "Оголошено (TED)" left node will simply be empty until the TED request format is resolved.
+
+### Bounded sample — not the full corpus
+
+`run.py` ingests the **newest ~500 reconstruction contracts** from ProZorro (the default `--target`). This is a bounded recent-data sample, not a full historical crawl. Use `--target` and `--scan-cap` to widen or narrow the sample.
 
 ---
 
@@ -268,9 +287,9 @@ Once `uvicorn api.app:app` is running:
 │   ├── stage3_join.py            # Core join + TED overlay
 │   ├── stage4_chain.py           # State tagging + funnel
 │   └── queries.py                # DuckDB query layer
-├── tests/                        # pytest suite (47 tests)
+├── tests/                        # pytest suite
 ├── data/
-│   ├── cache/                    # On-disk API response cache
+│   ├── cache/                    # On-disk API response cache (populated on first run)
 │   └── out/                      # Parquet artifacts
 └── docs/superpowers/
     ├── specs/2026-06-03-eu-ukr-recovery-money-design.md

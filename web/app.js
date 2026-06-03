@@ -166,7 +166,7 @@ async function openSupplier(edrpou) {
       <td>${esc(c.contract_id)}</td><td>${esc(c.cpv_div)}</td><td>${esc(c.region)}</td>
       <td class="num">${fmt(c.contract_amount_uah)}</td>
       <td class="num">${fmt(c.paid_amount_uah)}</td>
-      <td>${c.ted_id ? esc(c.ted_id) + '<span class="tag">слабкий TED-збіг</span>' : "—"}</td>
+      <td>${c.ted_id ? esc(c.ted_id) : "—"}${c.ted_match_confidence != null ? '<span class="tag">слабкий TED-збіг</span>' : ""}</td>
       <td>${esc(c.state)}</td></tr>`).join("");
     body.innerHTML = `<h3>Виконавець ЄДРПОУ ${esc(edrpou)}</h3>
       <table><thead><tr><th>Контракт</th><th>CPV</th><th>Регіон</th>

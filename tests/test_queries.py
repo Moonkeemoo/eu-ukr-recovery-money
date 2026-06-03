@@ -46,6 +46,7 @@ def test_supplier_detail(tmp_path):
     _seed(tmp_path)
     detail = supplier(tmp_path, "1")
     assert detail["contracts"][0]["contract_id"] == "c1"
+    assert "ted_match_confidence" in detail["contracts"][0]
 
 
 def test_gaps_lists_breaks(tmp_path):

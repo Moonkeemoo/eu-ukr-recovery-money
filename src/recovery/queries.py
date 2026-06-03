@@ -64,7 +64,7 @@ def supplier(out_dir: Path, edrpou: str) -> dict:
     con = _conn(out_dir)
     rows = con.execute(
         "SELECT contract_id, cpv_div, region, contract_amount_uah, paid_amount_uah, "
-        "ted_id, state FROM chain WHERE supplier_edrpou = ?",
+        "ted_id, ted_match_confidence, state FROM chain WHERE supplier_edrpou = ?",
         [edrpou],
     ).to_arrow_table().to_pylist()
     con.close()

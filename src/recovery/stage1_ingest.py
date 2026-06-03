@@ -22,8 +22,6 @@ def pull_prozorro(cache_dir: Path, max_pages: int = 50) -> list[dict]:
                 if any(config.cpv_in_scope((it.get("classification") or {}).get("id")) for it in items):
                     out.append(row)
             page += 1
-            if len(rows) == 0:
-                break
     return out
 
 

@@ -27,6 +27,7 @@ def test_pull_spending_returns_records(tmp_path):
         return_value=httpx.Response(200, json=page)
     )
     records = pull_spending(cache_dir=tmp_path, edrpous=["31725604"], max_pages=1)
+    assert len(records) == 1
     assert records[0]["recipt_edrpou"] == "31725604"
 
 

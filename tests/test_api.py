@@ -68,3 +68,12 @@ def test_regions_endpoint(tmp_path, monkeypatch):
     resp = client.get("/api/regions")
     assert resp.status_code == 200
     assert resp.json() == ["Київ"]
+
+
+def test_breakdown_endpoint(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/breakdown")
+    assert resp.status_code == 200
+    states = {r["state"] for r in resp.json()}
+    assert "full" in states

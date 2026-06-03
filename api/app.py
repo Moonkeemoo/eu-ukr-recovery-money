@@ -40,6 +40,11 @@ def get_regions():
     return queries.regions(config.OUT_DIR)
 
 
+@app.get("/api/breakdown")
+def get_breakdown(sector: str | None = None, region: str | None = None):
+    return queries.breakdown(config.OUT_DIR, sector=sector, region=region)
+
+
 @app.get("/")
 def index():
     return FileResponse(WEB_DIR / "index.html")

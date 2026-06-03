@@ -100,3 +100,23 @@ def regions(out_dir: Path) -> list[str]:
     ).fetchall()
     con.close()
     return [r[0] for r in rows]
+
+
+def breakdown(out_dir: Path, sector: str | None = None, region: str | None = None) -> list[dict]:
+    con = _conn(out_dir)
+    where, params = _where(sector, region)
+    rows = con.execute(
+        f"""SELECT state,
+              COUNT(*) AS cnt,
+              COALESCE(SUM(contract_amount_uah), 0) AS contracted,
+              COALESCE(SUM(paid_amount_uah), 0) AS paid
+            FROM chain {where}
+            GROUP BY state ORDER BY state""",
+        params,
+    ).fetchall()
+    con.close()
+    return [
+        {"state": r[0], "count": int(r[1]),
+         "contracted_uah": int(r[2]), "paid_uah": int(r[3])}
+        for r in rows
+    ]

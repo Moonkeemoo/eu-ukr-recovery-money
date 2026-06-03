@@ -76,3 +76,22 @@ def test_regions_distinct_sorted(tmp_path):
     _seed(tmp_path)
     from recovery.queries import regions
     assert regions(tmp_path) == ["Київ", "Львів"]
+
+
+def test_breakdown_per_state(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import breakdown
+    rows = {r["state"]: r for r in breakdown(tmp_path)}
+    assert rows["full"]["count"] == 1
+    assert rows["full"]["contracted_uah"] == 1000000
+    assert rows["full"]["paid_uah"] == 750000
+    assert rows["contract_no_payment"]["count"] == 1
+    assert rows["contract_no_payment"]["paid_uah"] == 0
+
+
+def test_breakdown_filtered(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import breakdown
+    rows = breakdown(tmp_path, sector="45")
+    assert len(rows) == 1
+    assert rows[0]["state"] == "full"

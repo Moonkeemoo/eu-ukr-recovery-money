@@ -23,6 +23,7 @@ def attach_ted_overlay(joined: pl.DataFrame, ted: pl.DataFrame) -> pl.DataFrame:
             pl.col("winner_name_norm").alias("supplier_name_norm"),
             "cpv_div", "ted_id", "amount_eur",
         )
+        .filter(pl.col("supplier_name_norm").is_not_null() & (pl.col("supplier_name_norm") != ""))
         .sort(["amount_eur", "ted_id"], descending=[True, False], nulls_last=True)
         .unique(subset=["supplier_name_norm", "cpv_div"], keep="first", maintain_order=True)
     )

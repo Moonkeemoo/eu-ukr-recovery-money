@@ -39,3 +39,16 @@ def test_attach_ted_overlay():
     row2 = by_id["c2"]
     assert row2["ted_match_confidence"] is None
     assert row2["ted_id"] is None
+
+
+def test_ted_overlay_ignores_empty_names():
+    joined = pl.DataFrame([
+        {"contract_id": "c1", "supplier_name_norm": "", "cpv_div": "45"},
+    ])
+    ted = pl.DataFrame([
+        {"ted_id": "t1", "winner_name_norm": "", "cpv_div": "45", "amount_eur": 500000},
+    ])
+    out = attach_ted_overlay(joined, ted)
+    row = out.to_dicts()[0]
+    assert row["ted_id"] is None
+    assert row["ted_match_confidence"] is None

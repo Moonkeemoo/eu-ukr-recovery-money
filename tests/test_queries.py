@@ -101,3 +101,31 @@ def test_breakdown_empty_returns_list(tmp_path):
     _seed(tmp_path)
     from recovery.queries import breakdown
     assert breakdown(tmp_path, sector="99") == []
+
+
+import pytest
+
+
+def test_top_suppliers(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    rows = top(tmp_path, by="supplier")
+    assert rows[0]["edrpou"] == "1"
+    assert rows[0]["contracted_uah"] == 1000000
+    assert rows[0]["contracts"] == 1
+
+
+def test_top_regions(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    rows = top(tmp_path, by="region")
+    by_region = {r["region"]: r for r in rows}
+    assert by_region["Київ"]["contracted_uah"] == 1000000
+    assert by_region["Львів"]["contracted_uah"] == 500000
+
+
+def test_top_rejects_bad_by(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    with pytest.raises(ValueError):
+        top(tmp_path, by="supplier; DROP TABLE chain")

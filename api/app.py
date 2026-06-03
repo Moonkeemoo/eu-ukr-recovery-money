@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse
@@ -43,6 +44,12 @@ def get_regions():
 @app.get("/api/breakdown")
 def get_breakdown(sector: str | None = None, region: str | None = None):
     return queries.breakdown(config.OUT_DIR, sector=sector, region=region)
+
+
+@app.get("/api/top")
+def get_top(by: Literal["supplier", "region"] = "supplier",
+            sector: str | None = None, region: str | None = None, limit: int = 10):
+    return queries.top(config.OUT_DIR, by=by, sector=sector, region=region, limit=limit)
 
 
 @app.get("/")

@@ -79,3 +79,18 @@ def test_breakdown_endpoint(tmp_path, monkeypatch):
     assert "full" in states
     full = next(r for r in resp.json() if r["state"] == "full")
     assert "count" in full and "contracted_uah" in full and "paid_uah" in full
+
+
+def test_top_suppliers_endpoint(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/top?by=supplier")
+    assert resp.status_code == 200
+    assert resp.json()[0]["edrpou"] == "1"
+
+
+def test_top_invalid_by_rejected(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/top?by=bogus")
+    assert resp.status_code == 422

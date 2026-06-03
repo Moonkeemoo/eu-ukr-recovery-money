@@ -120,3 +120,44 @@ def breakdown(out_dir: Path, sector: str | None = None, region: str | None = Non
          "contracted_uah": int(r[2]), "paid_uah": int(r[3])}
         for r in rows
     ]
+
+
+def top(out_dir: Path, by: str, sector: str | None = None,
+        region: str | None = None, limit: int = 10) -> list[dict]:
+    if by not in ("supplier", "region"):
+        raise ValueError(f"invalid 'by': {by!r} (expected 'supplier' or 'region')")
+    con = _conn(out_dir)
+    where, params = _where(sector, region)
+    if by == "supplier":
+        rows = con.execute(
+            f"""SELECT supplier_edrpou, any_value(supplier_name) AS name,
+                  COALESCE(SUM(contract_amount_uah), 0) AS contracted,
+                  COALESCE(SUM(paid_amount_uah), 0) AS paid,
+                  COUNT(*) AS n
+                FROM chain {where}
+                GROUP BY supplier_edrpou
+                ORDER BY contracted DESC LIMIT ?""",
+            params + [limit],
+        ).fetchall()
+        con.close()
+        return [
+            {"edrpou": r[0], "supplier_name": r[1], "contracted_uah": int(r[2]),
+             "paid_uah": int(r[3]), "contracts": int(r[4])}
+            for r in rows
+        ]
+    rows = con.execute(
+        f"""SELECT region,
+              COALESCE(SUM(contract_amount_uah), 0) AS contracted,
+              COALESCE(SUM(paid_amount_uah), 0) AS paid,
+              COUNT(*) AS n
+            FROM chain {where}
+            GROUP BY region
+            ORDER BY contracted DESC LIMIT ?""",
+        params + [limit],
+    ).fetchall()
+    con.close()
+    return [
+        {"region": r[0], "contracted_uah": int(r[1]),
+         "paid_uah": int(r[2]), "contracts": int(r[3])}
+        for r in rows
+    ]

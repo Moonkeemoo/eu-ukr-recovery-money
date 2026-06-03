@@ -50,6 +50,7 @@ def pull_prozorro(cache_dir: Path, target: int = config.PROZORRO_TARGET,
 def _quarter_windows(today: date, months: int, window_days: int) -> list[tuple[str, str]]:
     """Contiguous (startdate, enddate) ISO pairs covering the last `months`, each spanning
     at most `window_days` days (the spending API caps a query at 92 days)."""
+    # months*30 ≈ 360 days — a deliberate approximation; fine for a bounded recent-data sample
     start_all = today - timedelta(days=months * 30)
     windows: list[tuple[str, str]] = []
     cur_end = today

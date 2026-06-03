@@ -23,12 +23,19 @@ def test_join_core_matches_on_edrpou():
 def test_attach_ted_overlay():
     joined = pl.DataFrame([
         {"contract_id": "c1", "supplier_name_norm": "шлях", "cpv_div": "45"},
+        {"contract_id": "c2", "supplier_name_norm": "нема", "cpv_div": "45"},
     ])
     ted = pl.DataFrame([
         {"ted_id": "t1", "winner_name_norm": "шлях", "cpv_div": "45", "amount_eur": 500000},
         {"ted_id": "t2", "winner_name_norm": "інша", "cpv_div": "45", "amount_eur": 100000},
     ])
     out = attach_ted_overlay(joined, ted)
-    row = out.to_dicts()[0]
-    assert row["ted_id"] == "t1"
-    assert row["ted_match_confidence"] == 1.0
+    by_id = {r["contract_id"]: r for r in out.to_dicts()}
+
+    row1 = by_id["c1"]
+    assert row1["ted_id"] == "t1"
+    assert row1["ted_match_confidence"] == 1.0
+
+    row2 = by_id["c2"]
+    assert row2["ted_match_confidence"] is None
+    assert row2["ted_id"] is None

@@ -7,7 +7,7 @@ OUT_DIR = ROOT / "data" / "out"
 # Extended reconstruction CPV divisions (first 2 digits of the CPV code).
 CPV_DIVISIONS = ("45", "71", "09", "31", "34")
 
-# 12-month window, end is the snapshot date. Override END_DATE in tests.
+# Snapshot window: how many months back from today to ingest.
 WINDOW_MONTHS = 12
 
 # API hosts (all unauthenticated for reading).

@@ -11,4 +11,4 @@ def test_cpv_in_scope():
 
 def test_paths_exist_as_config():
     assert config.CPV_DIVISIONS == ("45", "71", "09", "31", "34")
-    assert str(config.OUT_DIR).endswith("out")
+    assert config.OUT_DIR.name == "out"

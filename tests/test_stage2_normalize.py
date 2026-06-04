@@ -47,11 +47,14 @@ def test_normalize_ted():
     assert eur["region"] == "UA"
     # winner-country prefers the Ukrainian entry when a notice lists several winners.
     assert eur["winner_country"] == "UKR"
+    # name + EDRPOU come from the same UKR-aligned index (here index 1, not the ROU index 0).
+    assert eur["winner_edrpou"] == "31725604"
     assert eur["amount_eur"] == 500000
 
     # total-value is trusted as EUR only when total-value-cur says so (honest currency).
     pln = rows[1]
     assert pln["ted_id"] == "00777000-2025"
+    assert pln["winner_edrpou"] == "42092130"
     assert pln["amount_eur"] is None
 
 

@@ -3,6 +3,7 @@
    "classification-cpv": ["45233140", "45233000"],
    "organisation-name-tenderer": {"eng": ["Foreign SRL", "Bud LLC"]},
    "organisation-country-tenderer": ["ROU", "UKR"],
+   "organisation-identifier-tenderer": ["RO123456", "31725604"],
    "total-value": 500000,
    "total-value-cur": "EUR",
    "place-of-performance": ["UA", "ROU"]},
@@ -10,6 +11,7 @@
    "classification-cpv": ["71240000"],
    "organisation-name-tenderer": {"eng": ["Proekt PP"]},
    "organisation-country-tenderer": ["UKR"],
+   "organisation-identifier-tenderer": ["42092130"],
    "total-value": 1000000,
    "total-value-cur": "PLN",
    "place-of-performance": ["UA"]}

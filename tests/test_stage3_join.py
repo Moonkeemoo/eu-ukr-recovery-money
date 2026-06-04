@@ -35,21 +35,21 @@ def test_join_core_matches_on_edrpou():
 
 def test_attach_ted_overlay():
     joined = pl.DataFrame([
-        {"contract_id": "c1", "supplier_name_norm": "шлях", "cpv_div": "45"},
-        {"contract_id": "c2", "supplier_name_norm": "нема", "cpv_div": "45"},
+        {"contract_id": "c1", "supplier_edrpou": "33658865"},
+        {"contract_id": "c2", "supplier_edrpou": "99999999"},
     ])
     ted = pl.DataFrame([
-        {"ted_id": "t1", "winner_name_norm": "шлях", "cpv_div": "45", "amount_eur": 500000},
-        {"ted_id": "t2", "winner_name_norm": "інша", "cpv_div": "45", "amount_eur": 100000},
+        {"ted_id": "t1", "winner_edrpou": "33658865", "amount_eur": 500000.0},
+        {"ted_id": "t2", "winner_edrpou": "11112222", "amount_eur": 100000.0},
     ])
     out = attach_ted_overlay(joined, ted)
     by_id = {r["contract_id"]: r for r in out.to_dicts()}
 
-    row1 = by_id["c1"]
+    row1 = by_id["c1"]  # matches on EDRPOU
     assert row1["ted_id"] == "t1"
     assert row1["ted_match_confidence"] == 1.0
 
-    row2 = by_id["c2"]
+    row2 = by_id["c2"]  # no TED notice for this EDRPOU
     assert row2["ted_match_confidence"] is None
     assert row2["ted_id"] is None
 
@@ -73,12 +73,12 @@ def test_build_paid_by_year_aggregates_per_contract_and_year():
     ]
 
 
-def test_ted_overlay_ignores_empty_names():
+def test_ted_overlay_ignores_empty_edrpou():
     joined = pl.DataFrame([
-        {"contract_id": "c1", "supplier_name_norm": "", "cpv_div": "45"},
+        {"contract_id": "c1", "supplier_edrpou": ""},
     ])
     ted = pl.DataFrame([
-        {"ted_id": "t1", "winner_name_norm": "", "cpv_div": "45", "amount_eur": 500000},
+        {"ted_id": "t1", "winner_edrpou": "", "amount_eur": 500000.0},
     ])
     out = attach_ted_overlay(joined, ted)
     row = out.to_dicts()[0]

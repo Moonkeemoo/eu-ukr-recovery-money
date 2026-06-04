@@ -31,6 +31,7 @@ TED_FIELDS = (
     "classification-cpv",
     "organisation-name-tenderer",
     "organisation-country-tenderer",
+    "organisation-identifier-tenderer",  # UA EDRPOU of the tenderer — the overlay join key
     "total-value",
     "total-value-cur",
     "place-of-performance",

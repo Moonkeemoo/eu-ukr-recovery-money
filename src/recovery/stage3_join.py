@@ -17,17 +17,24 @@ def join_core(contracts: pl.DataFrame, spending: pl.DataFrame) -> pl.DataFrame:
 
 
 def attach_ted_overlay(joined: pl.DataFrame, ted: pl.DataFrame) -> pl.DataFrame:
-    """Attach a TED notice where winner_name_norm + cpv_div match. Confidence 1.0."""
+    """Attach a TED notice where the Ukrainian tenderer's EDRPOU equals the contract
+    supplier's EDRPOU. Confidence 1.0 on match.
+
+    EDRPOU is the strong key: TED winner names are Latin/transliterated
+    (e.g. "rostdorstroy") while ProZorro names are Cyrillic, so a name join never
+    matches across scripts. TED carries the UA registration number in
+    `organisation-identifier-tenderer`, normalized into `winner_edrpou`.
+    """
     ted_keyed = (
         ted.select(
-            pl.col("winner_name_norm").alias("supplier_name_norm"),
-            "cpv_div", "ted_id", "amount_eur",
+            pl.col("winner_edrpou").alias("supplier_edrpou"),
+            "ted_id", "amount_eur",
         )
-        .filter(pl.col("supplier_name_norm").is_not_null() & (pl.col("supplier_name_norm") != ""))
+        .filter(pl.col("supplier_edrpou").is_not_null() & (pl.col("supplier_edrpou") != ""))
         .sort(["amount_eur", "ted_id"], descending=[True, False], nulls_last=True)
-        .unique(subset=["supplier_name_norm", "cpv_div"], keep="first", maintain_order=True)
+        .unique(subset=["supplier_edrpou"], keep="first", maintain_order=True)
     )
-    out = joined.join(ted_keyed, on=["supplier_name_norm", "cpv_div"], how="left")
+    out = joined.join(ted_keyed, on="supplier_edrpou", how="left")
     out = out.with_columns(
         pl.when(pl.col("ted_id").is_not_null())
         .then(pl.lit(1.0))

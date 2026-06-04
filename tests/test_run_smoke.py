@@ -21,6 +21,7 @@ def test_pipeline_writes_chain(tmp_path, monkeypatch):
         lambda **k: [{"publication-number": "t1", "classification-cpv": ["45233140"],
             "organisation-name-tenderer": {"eng": ["Шлях"]},
             "organisation-country-tenderer": ["UKR"],
+            "organisation-identifier-tenderer": ["31725604"],  # matches the contract supplier EDRPOU
             "total-value": 500000, "total-value-cur": "EUR",
             "place-of-performance": ["UA"]}])
 

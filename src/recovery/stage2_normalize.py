@@ -16,7 +16,7 @@ _SPENDING_SCHEMA = {
 _TED_SCHEMA = {
     "ted_id": pl.Utf8, "cpv": pl.Utf8, "cpv_div": pl.Utf8,
     "winner_name": pl.Utf8, "winner_name_norm": pl.Utf8, "winner_country": pl.Utf8,
-    "amount_eur": pl.Float64, "region": pl.Utf8,
+    "winner_edrpou": pl.Utf8, "amount_eur": pl.Float64, "region": pl.Utf8,
 }
 
 
@@ -71,13 +71,15 @@ def _first(value):
     return value
 
 
-def _ukr_tenderer_name(notice: dict) -> str | None:
-    """Name of the first Ukrainian tenderer in a TED notice.
+def _ukr_tenderer(notice: dict) -> tuple[str | None, str | None]:
+    """(name, EDRPOU) of the first Ukrainian tenderer in a TED notice.
 
-    `organisation-name-tenderer` is a ``{lang: [names]}`` dict whose name list is
-    index-aligned with `organisation-country-tenderer`. We pick the name at the
-    first position whose country is ``UKR`` (the list also includes losing
-    bidders, which is acceptable for a confidence-tagged overlay).
+    `organisation-name-tenderer` (a ``{lang: [names]}`` dict), `organisation-country-tenderer`
+    and `organisation-identifier-tenderer` are index-aligned lists; we take the entry at the
+    first position whose country is ``UKR`` (the list also includes losing bidders, which is
+    acceptable for a confidence-tagged overlay). The identifier is the Ukrainian EDRPOU — the
+    strong key the overlay joins on, since TED winner names are Latin-transliterated and never
+    match ProZorro's Cyrillic names.
     """
     names_by_lang = notice.get("organisation-name-tenderer") or {}
     if isinstance(names_by_lang, dict):
@@ -85,19 +87,23 @@ def _ukr_tenderer_name(notice: dict) -> str | None:
     else:
         names = names_by_lang
     names = names if isinstance(names, list) else [names]
+    ids = notice.get("organisation-identifier-tenderer") or []
+    ids = ids if isinstance(ids, list) else [ids]
     countries = notice.get("organisation-country-tenderer") or []
     countries = countries if isinstance(countries, list) else [countries]
-    for name, country in zip(names, countries):
+    for idx, country in enumerate(countries):
         if country == "UKR":
-            return name
-    return None
+            name = names[idx] if idx < len(names) else None
+            edrpou = normalize_edrpou(ids[idx]) if idx < len(ids) else None
+            return name, edrpou
+    return None, None
 
 
 def normalize_ted(raw: list[dict]) -> pl.DataFrame:
     rows = []
     for r in raw:
         cpv = _first(r.get("classification-cpv"))
-        name = _ukr_tenderer_name(r)
+        name, edrpou = _ukr_tenderer(r)
         # total-value is only trustworthy as EUR when the currency field confirms it.
         amount_eur = _first(r.get("total-value"))
         if _first(r.get("total-value-cur")) != "EUR":
@@ -108,7 +114,8 @@ def normalize_ted(raw: list[dict]) -> pl.DataFrame:
             "cpv_div": cpv_division(cpv),
             "winner_name": name,
             "winner_name_norm": normalize_company_name(name),
-            "winner_country": "UKR" if name else None,
+            "winner_country": "UKR" if (name or edrpou) else None,
+            "winner_edrpou": edrpou,
             "amount_eur": amount_eur,
             "region": _first(r.get("place-of-performance")),
         })

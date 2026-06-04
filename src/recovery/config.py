@@ -13,7 +13,7 @@ WINDOW_MONTHS = 12
 # Real-data ingest bounds (see docs/superpowers/specs/2026-06-03-real-data-ingest-design.md)
 PROZORRO_TARGET = 500       # stop after this many in-scope contracts
 PROZORRO_SCAN_CAP = 1500    # stop after scanning this many feed stubs
-SPENDING_BATCH = 20         # recipient EDRPOUs per spending request
+SPENDING_BATCH = 10         # recipient EDRPOUs per request (API rejects >10: "Перевищено максимальний розмір масиву recipt_edrpous")
 SPENDING_WINDOW_DAYS = 90   # spending date window (API hard limit is 92)
 
 # API hosts (all unauthenticated for reading).

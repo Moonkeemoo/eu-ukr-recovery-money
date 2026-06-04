@@ -17,5 +17,5 @@ def test_paths_exist_as_config():
 def test_ingest_bounds_present():
     assert config.PROZORRO_TARGET == 500
     assert config.PROZORRO_SCAN_CAP == 1500
-    assert config.SPENDING_BATCH == 20
+    assert config.SPENDING_BATCH == 10
     assert config.SPENDING_WINDOW_DAYS == 90

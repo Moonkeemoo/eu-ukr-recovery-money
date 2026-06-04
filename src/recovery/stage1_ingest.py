@@ -73,6 +73,8 @@ def pull_spending(cache_dir: Path, edrpous: list[str],
     uniq = sorted({e for e in edrpous if e})
     windows = _quarter_windows(today, months, window_days)
     out: list[dict] = []
+    skipped = 0
+    last_error = ""
     with CachedClient(cache_dir / "spending") as client:
         for i in range(0, len(uniq), batch):
             recipt = ",".join(uniq[i:i + batch])
@@ -82,11 +84,18 @@ def pull_spending(cache_dir: Path, edrpous: list[str],
                         f"{config.SPENDING_API}/v2/api/transactions/",
                         params={"recipt_edrpous": recipt, "startdate": start, "enddate": end},
                     )
-                except httpx.HTTPError:
-                    continue  # skip a failed batch/window; keep going
+                except httpx.HTTPError as exc:
+                    # Keep going, but never silently: a swallowed batch error once
+                    # hid the fact that batch>10 always 400s and produced 0 rows.
+                    skipped += 1
+                    last_error = str(exc)
+                    continue
                 if isinstance(rows, list):
                     out.extend(rows)
-    print(f"spending: queried {len(uniq)} EDRPOUs over {len(windows)} windows, {len(out)} rows")
+    msg = f"spending: queried {len(uniq)} EDRPOUs over {len(windows)} windows, {len(out)} rows"
+    if skipped:
+        msg += f" — WARNING: {skipped} request(s) failed and were skipped (last: {last_error})"
+    print(msg)
     return out
 
 

@@ -5,9 +5,17 @@ from pathlib import Path
 import httpx
 import respx
 
+from recovery import config
 from recovery.stage1_ingest import pull_prozorro, pull_spending, pull_ted
 
 FIX = Path(__file__).parent / "fixtures"
+
+
+def test_spending_batch_within_api_limit():
+    # The spending API rejects recipt_edrpous arrays longer than 10
+    # ("Перевищено максимальний розмір масиву"); a larger batch 400s on every
+    # request and yields zero payments.
+    assert config.SPENDING_BATCH <= 10
 
 
 @respx.mock

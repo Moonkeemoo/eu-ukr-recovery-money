@@ -35,3 +35,23 @@ def attach_ted_overlay(joined: pl.DataFrame, ted: pl.DataFrame) -> pl.DataFrame:
         .alias("ted_match_confidence")
     )
     return out
+
+
+def build_paid_by_year(contracts: pl.DataFrame, spending: pl.DataFrame) -> pl.DataFrame:
+    """Payments per contract per calendar year of payment_date.
+
+    Treasury rows carry no contractId, so payments attach to a contract via its
+    supplier EDRPOU (the same supplier-level attribution as the lifetime total).
+    """
+    spend_year = (
+        spending.with_columns(
+            pl.col("payment_date").str.slice(0, 4).cast(pl.Int64).alias("year")
+        )
+        .group_by(["recipient_edrpou", "year"])
+        .agg(pl.col("amount_uah").sum().alias("paid_uah"))
+    )
+    return (
+        contracts.select("contract_id", "supplier_edrpou")
+        .join(spend_year, left_on="supplier_edrpou", right_on="recipient_edrpou", how="inner")
+        .select("contract_id", "year", "paid_uah")
+    )

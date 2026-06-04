@@ -3,7 +3,7 @@ import argparse
 from recovery import config
 from recovery import stage1_ingest as stage1
 from recovery.stage2_normalize import normalize_prozorro, normalize_spending, normalize_ted
-from recovery.stage3_join import join_core, attach_ted_overlay
+from recovery.stage3_join import join_core, attach_ted_overlay, build_paid_by_year
 from recovery.stage4_chain import build_chain, build_funnel
 
 
@@ -16,6 +16,7 @@ def main(target: int = config.PROZORRO_TARGET, scan_cap: int = config.PROZORRO_S
     edrpous = contracts["supplier_edrpou"].drop_nulls().unique().to_list()
     raw_sp = stage1.pull_spending(cache_dir=config.CACHE_DIR, edrpous=edrpous)
     spending = normalize_spending(raw_sp)
+    paid_by_year = build_paid_by_year(contracts, spending)
 
     try:
         raw_ted = stage1.pull_ted(cache_dir=config.CACHE_DIR)
@@ -26,6 +27,7 @@ def main(target: int = config.PROZORRO_TARGET, scan_cap: int = config.PROZORRO_S
 
     contracts.write_parquet(config.OUT_DIR / "prozorro_contracts.parquet")
     spending.write_parquet(config.OUT_DIR / "spending_tx.parquet")
+    paid_by_year.write_parquet(config.OUT_DIR / "paid_by_year.parquet")
     ted.write_parquet(config.OUT_DIR / "ted_notices.parquet")
 
     joined = attach_ted_overlay(join_core(contracts, spending), ted)

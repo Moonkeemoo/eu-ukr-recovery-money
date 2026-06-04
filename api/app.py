@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse
@@ -26,13 +27,31 @@ def get_supplier(edrpou: str):
 
 
 @app.get("/api/gaps")
-def get_gaps(gap_type: str = Query("contract_no_payment", alias="type")):
-    return queries.gaps(config.OUT_DIR, gap_type=gap_type)
+def get_gaps(gap_type: str = Query("contract_no_payment", alias="type"),
+             sector: str | None = None, region: str | None = None):
+    return queries.gaps(config.OUT_DIR, gap_type=gap_type, sector=sector, region=region)
 
 
 @app.get("/api/funnel")
 def get_funnel():
     return queries.funnel(config.OUT_DIR)
+
+
+@app.get("/api/regions")
+def get_regions():
+    return queries.regions(config.OUT_DIR)
+
+
+@app.get("/api/breakdown")
+def get_breakdown(sector: str | None = None, region: str | None = None):
+    return queries.breakdown(config.OUT_DIR, sector=sector, region=region)
+
+
+@app.get("/api/top")
+def get_top(by: Literal["supplier", "region"] = "supplier",
+            sector: str | None = None, region: str | None = None,
+            limit: int = Query(default=10, ge=1, le=200)):
+    return queries.top(config.OUT_DIR, by=by, sector=sector, region=region, limit=limit)
 
 
 @app.get("/")

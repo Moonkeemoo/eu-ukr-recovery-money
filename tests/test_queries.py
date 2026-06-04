@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import polars as pl
+import pytest
 
 from recovery.queries import sankey, kpi, supplier, gaps, funnel
 
@@ -45,6 +46,7 @@ def test_supplier_detail(tmp_path):
     _seed(tmp_path)
     detail = supplier(tmp_path, "1")
     assert detail["contracts"][0]["contract_id"] == "c1"
+    assert "ted_match_confidence" in detail["contracts"][0]
 
 
 def test_gaps_lists_breaks(tmp_path):
@@ -70,3 +72,77 @@ def test_kpi_empty_sector_no_crash(tmp_path):
 def test_gaps_empty_returns_list(tmp_path):
     _seed(tmp_path)
     assert gaps(tmp_path, gap_type="nonexistent_state") == []
+
+
+def test_regions_distinct_sorted(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import regions
+    assert regions(tmp_path) == ["Київ", "Львів"]
+
+
+def test_breakdown_per_state(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import breakdown
+    rows = {r["state"]: r for r in breakdown(tmp_path)}
+    assert rows["full"]["count"] == 1
+    assert rows["full"]["contracted_uah"] == 1000000
+    assert rows["full"]["paid_uah"] == 750000
+    assert rows["contract_no_payment"]["count"] == 1
+    assert rows["contract_no_payment"]["paid_uah"] == 0
+
+
+def test_breakdown_filtered(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import breakdown
+    rows = breakdown(tmp_path, sector="45")
+    assert len(rows) == 1
+    assert rows[0]["state"] == "full"
+
+
+def test_breakdown_empty_returns_list(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import breakdown
+    assert breakdown(tmp_path, sector="99") == []
+
+
+def test_top_suppliers(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    rows = top(tmp_path, by="supplier")
+    assert rows[0]["edrpou"] == "1"
+    assert rows[0]["contracted_uah"] == 1000000
+    assert rows[0]["contracts"] == 1
+
+
+def test_top_regions(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    rows = top(tmp_path, by="region")
+    by_region = {r["region"]: r for r in rows}
+    assert by_region["Київ"]["contracted_uah"] == 1000000
+    assert by_region["Львів"]["contracted_uah"] == 500000
+
+
+def test_top_rejects_bad_by(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    with pytest.raises(ValueError):
+        top(tmp_path, by="supplier; DROP TABLE chain")
+
+
+def test_top_supplier_sector_filter(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import top
+    rows = top(tmp_path, by="supplier", sector="45")
+    assert len(rows) == 1
+    assert rows[0]["edrpou"] == "1"
+
+
+def test_gaps_filtered_by_sector(tmp_path):
+    _seed(tmp_path)
+    from recovery.queries import gaps
+    assert gaps(tmp_path, gap_type="contract_no_payment", sector="45") == []
+    rows = gaps(tmp_path, gap_type="contract_no_payment", sector="71")
+    assert len(rows) == 1
+    assert rows[0]["contract_id"] == "c2"
+    assert rows[0]["supplier_edrpou"] == "2"

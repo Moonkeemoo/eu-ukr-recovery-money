@@ -64,22 +64,31 @@ def supplier(out_dir: Path, edrpou: str) -> dict:
     con = _conn(out_dir)
     rows = con.execute(
         "SELECT contract_id, cpv_div, region, contract_amount_uah, paid_amount_uah, "
-        "ted_id, state FROM chain WHERE supplier_edrpou = ?",
+        "ted_id, ted_match_confidence, state FROM chain WHERE supplier_edrpou = ?",
         [edrpou],
     ).to_arrow_table().to_pylist()
     con.close()
     return {"edrpou": edrpou, "contracts": rows}
 
 
-def gaps(out_dir: Path, gap_type: str = "contract_no_payment") -> list[dict]:
+def gaps(out_dir: Path, gap_type: str = "contract_no_payment",
+         sector: str | None = None, region: str | None = None) -> list[dict]:
     con = _conn(out_dir)
-    rows = con.execute(
-        "SELECT contract_id, supplier_name, cpv_div, region, contract_amount_uah, state "
-        "FROM chain WHERE state = ?",
-        [gap_type],
+    clauses, params = ["state = ?"], [gap_type]
+    if sector:
+        clauses.append("cpv_div = ?")
+        params.append(sector)
+    if region:
+        clauses.append("region = ?")
+        params.append(region)
+    where = "WHERE " + " AND ".join(clauses)
+    result = con.execute(
+        "SELECT contract_id, supplier_name, supplier_edrpou, cpv_div, region, "
+        f"contract_amount_uah, state FROM chain {where}",
+        params,
     ).to_arrow_table().to_pylist()
     con.close()
-    return rows
+    return result
 
 
 def funnel(out_dir: Path) -> list[dict]:
@@ -90,3 +99,74 @@ def funnel(out_dir: Path) -> list[dict]:
     ).to_arrow_table().to_pylist()
     con.close()
     return rows
+
+
+def regions(out_dir: Path) -> list[str]:
+    con = _conn(out_dir)
+    rows = con.execute(
+        "SELECT DISTINCT region FROM chain "
+        "WHERE region IS NOT NULL AND region <> '' ORDER BY region"
+    ).fetchall()
+    con.close()
+    return [r[0] for r in rows]
+
+
+def breakdown(out_dir: Path, sector: str | None = None, region: str | None = None) -> list[dict]:
+    con = _conn(out_dir)
+    where, params = _where(sector, region)
+    rows = con.execute(
+        f"""SELECT state,
+              COUNT(*) AS cnt,
+              COALESCE(SUM(contract_amount_uah), 0) AS contracted,
+              COALESCE(SUM(paid_amount_uah), 0) AS paid
+            FROM chain {where}
+            GROUP BY state ORDER BY state""",
+        params,
+    ).fetchall()
+    con.close()
+    return [
+        {"state": r[0], "count": int(r[1]),
+         "contracted_uah": int(r[2]), "paid_uah": int(r[3])}
+        for r in rows
+    ]
+
+
+def top(out_dir: Path, by: str, sector: str | None = None,
+        region: str | None = None, limit: int = 10) -> list[dict]:
+    if by not in ("supplier", "region"):
+        raise ValueError(f"invalid 'by': {by!r} (expected 'supplier' or 'region')")
+    con = _conn(out_dir)
+    where, params = _where(sector, region)
+    if by == "supplier":
+        rows = con.execute(
+            f"""SELECT supplier_edrpou, any_value(supplier_name) AS name,
+                  COALESCE(SUM(contract_amount_uah), 0) AS contracted,
+                  COALESCE(SUM(paid_amount_uah), 0) AS paid,
+                  COUNT(*) AS n
+                FROM chain {where}
+                GROUP BY supplier_edrpou
+                ORDER BY contracted DESC LIMIT ?""",
+            params + [limit],
+        ).fetchall()
+        con.close()
+        return [
+            {"edrpou": r[0], "supplier_name": r[1], "contracted_uah": int(r[2]),
+             "paid_uah": int(r[3]), "contracts": int(r[4])}
+            for r in rows
+        ]
+    rows = con.execute(
+        f"""SELECT region,
+              COALESCE(SUM(contract_amount_uah), 0) AS contracted,
+              COALESCE(SUM(paid_amount_uah), 0) AS paid,
+              COUNT(*) AS n
+            FROM chain {where}
+            GROUP BY region
+            ORDER BY contracted DESC LIMIT ?""",
+        params + [limit],
+    ).fetchall()
+    con.close()
+    return [
+        {"region": r[0], "contracted_uah": int(r[1]),
+         "paid_uah": int(r[2]), "contracts": int(r[3])}
+        for r in rows
+    ]

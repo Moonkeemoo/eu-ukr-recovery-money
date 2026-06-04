@@ -12,13 +12,17 @@ WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
 
 @app.get("/api/kpi")
-def get_kpi(sector: str | None = None, region: str | None = None):
-    return queries.kpi(config.OUT_DIR, sector=sector, region=region)
+def get_kpi(sector: str | None = None, region: str | None = None,
+            contract_year: int | None = None, payment_year: int | None = None):
+    return queries.kpi(config.OUT_DIR, sector=sector, region=region,
+                       contract_year=contract_year, payment_year=payment_year)
 
 
 @app.get("/api/sankey")
-def get_sankey(sector: str | None = None, region: str | None = None):
-    return queries.sankey(config.OUT_DIR, sector=sector, region=region)
+def get_sankey(sector: str | None = None, region: str | None = None,
+               contract_year: int | None = None, payment_year: int | None = None):
+    return queries.sankey(config.OUT_DIR, sector=sector, region=region,
+                          contract_year=contract_year, payment_year=payment_year)
 
 
 @app.get("/api/supplier/{edrpou}")
@@ -28,8 +32,10 @@ def get_supplier(edrpou: str):
 
 @app.get("/api/gaps")
 def get_gaps(gap_type: str = Query("contract_no_payment", alias="type"),
-             sector: str | None = None, region: str | None = None):
-    return queries.gaps(config.OUT_DIR, gap_type=gap_type, sector=sector, region=region)
+             sector: str | None = None, region: str | None = None,
+             contract_year: int | None = None, payment_year: int | None = None):
+    return queries.gaps(config.OUT_DIR, gap_type=gap_type, sector=sector, region=region,
+                        contract_year=contract_year, payment_year=payment_year)
 
 
 @app.get("/api/funnel")
@@ -42,16 +48,25 @@ def get_regions():
     return queries.regions(config.OUT_DIR)
 
 
+@app.get("/api/years")
+def get_years():
+    return queries.years(config.OUT_DIR)
+
+
 @app.get("/api/breakdown")
-def get_breakdown(sector: str | None = None, region: str | None = None):
-    return queries.breakdown(config.OUT_DIR, sector=sector, region=region)
+def get_breakdown(sector: str | None = None, region: str | None = None,
+                  contract_year: int | None = None, payment_year: int | None = None):
+    return queries.breakdown(config.OUT_DIR, sector=sector, region=region,
+                             contract_year=contract_year, payment_year=payment_year)
 
 
 @app.get("/api/top")
 def get_top(by: Literal["supplier", "region"] = "supplier",
             sector: str | None = None, region: str | None = None,
+            contract_year: int | None = None, payment_year: int | None = None,
             limit: int = Query(default=10, ge=1, le=200)):
-    return queries.top(config.OUT_DIR, by=by, sector=sector, region=region, limit=limit)
+    return queries.top(config.OUT_DIR, by=by, sector=sector, region=region,
+                       contract_year=contract_year, payment_year=payment_year, limit=limit)
 
 
 @app.get("/")

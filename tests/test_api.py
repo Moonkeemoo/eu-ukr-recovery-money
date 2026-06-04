@@ -9,7 +9,7 @@ def _seed(out_dir: Path):
         {"contract_id": "c1", "supplier_edrpou": "1", "supplier_name": "A",
          "cpv_div": "45", "region": "Київ", "contract_amount_uah": 1000000,
          "paid_amount_uah": 750000, "ted_amount_eur": 500000, "ted_id": "t1",
-         "ted_match_confidence": 1.0, "state": "full"},
+         "ted_match_confidence": 1.0, "state": "full", "contract_year": 2024},
     ]).write_parquet(out_dir / "chain.parquet")
     pl.DataFrame([{"step": "contracts", "count": 1}]).write_parquet(out_dir / "funnel.parquet")
 
@@ -110,3 +110,22 @@ def test_gaps_endpoint_sector_filter(tmp_path, monkeypatch):
     resp = client.get("/api/gaps?type=contract_no_payment&sector=45")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_years_endpoint(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    resp = client.get("/api/years")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["contract_years"] == [2024]
+    assert body["payment_years"] == []  # no paid_by_year.parquet seeded
+
+
+def test_kpi_accepts_year_params(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    client = _client(tmp_path, monkeypatch)
+    # payment_year is ignored when no paid_by_year.parquet exists (queries._scope guard)
+    resp = client.get("/api/kpi?contract_year=2024&payment_year=2025")
+    assert resp.status_code == 200
+    assert resp.json()["contracted_uah"] == 1000000

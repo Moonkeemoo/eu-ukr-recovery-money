@@ -4,7 +4,6 @@ const esc = (s) => (s ?? "").toString()
   .replace(/&/g, "&amp;").replace(/</g, "&lt;")
   .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const fmt = (n) => new Intl.NumberFormat("uk-UA").format(Math.round(n ?? 0));
-const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
 const state = { sector: "", region: "", contractYear: "", paymentYear: "",
   gaps: [], gapSort: { key: "contract_amount_uah", dir: -1 } };

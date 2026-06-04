@@ -3,6 +3,19 @@ import polars as pl
 from recovery.stage3_join import join_core, attach_ted_overlay, build_paid_by_year
 
 
+def test_build_paid_by_year_tolerates_malformed_date():
+    contracts = pl.DataFrame({"contract_id": ["c1"], "supplier_edrpou": ["111"]})
+    spending = pl.DataFrame({
+        "recipient_edrpou": ["111", "111"],
+        "amount_uah": [10.0, 5.0],
+        "payment_date": ["2024-03-01", "n/a"],  # second row has a junk date
+    })
+    out = build_paid_by_year(contracts, spending)  # must not raise
+    years = set(out["year"].to_list())
+    assert 2024 in years   # good row parsed
+    assert None in years   # junk row degraded to a null year, not a crash
+
+
 def test_join_core_matches_on_edrpou():
     contracts = pl.DataFrame([
         {"contract_id": "c1", "supplier_edrpou": "31725604",

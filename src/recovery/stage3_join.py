@@ -45,7 +45,9 @@ def build_paid_by_year(contracts: pl.DataFrame, spending: pl.DataFrame) -> pl.Da
     """
     spend_year = (
         spending.with_columns(
-            pl.col("payment_date").str.slice(0, 4).cast(pl.Int64).alias("year")
+            # strict=False: a malformed/empty date yields a null year rather than
+            # aborting the whole pipeline run on one bad treasury row.
+            pl.col("payment_date").str.slice(0, 4).cast(pl.Int64, strict=False).alias("year")
         )
         .group_by(["recipient_edrpou", "year"])
         .agg(pl.col("amount_uah").sum().alias("paid_uah"))

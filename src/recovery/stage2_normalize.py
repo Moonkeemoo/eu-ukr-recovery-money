@@ -6,6 +6,7 @@ _PROZORRO_SCHEMA = {
     "contract_id": pl.Utf8, "cpv": pl.Utf8, "cpv_div": pl.Utf8,
     "supplier_edrpou": pl.Utf8, "supplier_name": pl.Utf8, "supplier_name_norm": pl.Utf8,
     "amount_uah": pl.Float64, "region": pl.Utf8, "redacted": pl.Boolean,
+    "contract_year": pl.Int64,
 }
 _SPENDING_SCHEMA = {
     "tx_id": pl.Utf8, "recipient_edrpou": pl.Utf8, "recipient_name": pl.Utf8,
@@ -38,6 +39,11 @@ def normalize_prozorro(raw: list[dict]) -> pl.DataFrame:
             "amount_uah": (r.get("value") or {}).get("amount"),
             "region": region,
             "redacted": bool(r.get("redacted", False)),
+            "contract_year": (
+                int(r["dateSigned"][:4])
+                if r.get("dateSigned") and r["dateSigned"][:4].isdigit()
+                else None
+            ),
         })
     return pl.DataFrame(rows, schema=_PROZORRO_SCHEMA)
 

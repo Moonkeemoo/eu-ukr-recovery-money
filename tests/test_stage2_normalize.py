@@ -58,11 +58,30 @@ def test_normalize_ted():
 def test_normalize_empty_input_keeps_schema():
     assert normalize_prozorro([]).columns == [
         "contract_id", "cpv", "cpv_div", "supplier_edrpou", "supplier_name",
-        "supplier_name_norm", "amount_uah", "region", "redacted",
+        "supplier_name_norm", "amount_uah", "region", "redacted", "contract_year",
     ]
     assert normalize_spending([]).height == 0
     assert normalize_ted([]).height == 0
     assert "ted_id" in normalize_ted([]).columns
+
+
+def test_normalize_prozorro_parses_contract_year():
+    raw = [{
+        "contractID": "UA-1",
+        "dateSigned": "2024-07-15T00:00:00+03:00",
+        "items": [{"classification": {"id": "45233140-2"}}],
+        "suppliers": [{"name": "ТОВ \"Шлях\"", "identifier": {"id": "31725604"}}],
+        "value": {"amount": 100},
+    }, {
+        "contractID": "UA-2",  # no dateSigned -> null year
+        "items": [{"classification": {"id": "45233140-2"}}],
+        "suppliers": [{"name": "X", "identifier": {"id": "222"}}],
+        "value": {"amount": 50},
+    }]
+    df = normalize_prozorro(raw)
+    rows = df.to_dicts()
+    assert rows[0]["contract_year"] == 2024
+    assert rows[1]["contract_year"] is None
 
 
 def test_normalize_prozorro_region_falls_back_to_supplier_address():

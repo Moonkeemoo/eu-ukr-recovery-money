@@ -21,13 +21,23 @@ _PHRASE_RE = re.compile(
 
 
 def normalize_edrpou(value: str | None) -> str | None:
-    """Canonical 8-digit EDRPOU, or None if no digits found."""
+    """Canonical EDRPOU/РНОКПП, or None.
+
+    Pads short codes to 8 digits. Rejects lengths that can't be a valid code
+    (EDRPOU is 8 digits, an individual's РНОКПП is 10) — e.g. an 11-digit value,
+    which the spending API rejects with "Невірно вказаний ЄДРПОУ" and which would
+    otherwise 400 the whole batch it lands in.
+    """
     if not value:
         return None
     digits = re.sub(r"\D", "", value)
     if not digits:
         return None
-    return digits.zfill(8) if len(digits) < 8 else digits
+    if len(digits) < 8:
+        return digits.zfill(8)
+    if len(digits) in (8, 10):
+        return digits
+    return None
 
 
 def normalize_company_name(value: str | None) -> str:

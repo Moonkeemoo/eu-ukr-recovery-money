@@ -11,6 +11,14 @@ def test_normalize_edrpou_pads_and_strips():
     assert normalize_edrpou("not-a-code") is None
 
 
+def test_normalize_edrpou_rejects_malformed_lengths():
+    # EDRPOU is 8 digits, РНОКПП (individuals) is 10; other lengths are malformed
+    # upstream data that the spending API rejects ("Невірно вказаний ЄДРПОУ").
+    assert normalize_edrpou("2586505876") == "2586505876"  # 10-digit РНОКПП — valid, kept
+    assert normalize_edrpou("27369144681") is None          # 11 digits — invalid
+    assert normalize_edrpou("123456789") is None            # 9 digits — invalid
+
+
 def test_normalize_company_name():
     # lowercase, strip legal forms and quotes/punctuation, collapse whitespace
     assert normalize_company_name('ТОВ "ІТ СПЕЦІАЛІСТ"') == "іт спеціаліст"

@@ -95,25 +95,18 @@ far larger than `contracted` (≈1.37 млрд), so a contracted→paid flow for
 "Законтрактовано" node to balloon to the paid magnitude. Numeric labels do not fix this; the
 flow metaphor itself misrepresents two non-conserved, differently-scoped quantities.
 
-**Proposed resolution (confirm during review):** stop forcing the two UAH quantities into one
-conserved flow. Render the dashboard's money picture as **labelled magnitude bars**, not a
-Sankey chain:
+**Resolution (agreed):** stop forcing the two UAH quantities into one conserved flow. Replace
+the Sankey with **labelled magnitude bars**:
 
-- A horizontal bar per quantity — Законтрактовано (грн), Надходження постачальникам (грн),
-  Оголошено (TED, €) — each with its numeric label, on its own honest scale (EUR bar
-  visually separated / annotated, never mixed into the UAH bars).
-- This keeps the at-a-glance comparison the Sankey was meant to give, without implying a
-  false left-to-right conservation. The "розрив" story (contracts with no payment) stays in
-  the existing breakdown/funnel panels.
-
-**Alternative (smaller change):** keep the three-node Sankey but (a) add numeric labels,
-(b) render the TED→contracted link as a neutral dashed context connector (fixed thin width,
-not UAH-scaled) with the "€…" announced label on the TED node, and (c) accept that the
-contracted node sizes to the paid magnitude, leaning on labels + the disclaimer to carry the
-honesty. Less work, but the geometry stays misleading.
-
-Recommendation: the **bars** option — it is the only one that is visually honest once `paid`
-is supplier-level. Decision deferred to user review.
+- One horizontal bar per quantity — Законтрактовано (грн), Надходження постачальникам (грн),
+  Оголошено (TED, €) — each with its numeric label.
+- UAH bars share one UAH scale; the TED/€ bar is visually separated and annotated on its own
+  scale, never mixed into the UAH axis.
+- Honest at-a-glance comparison without implying false left-to-right conservation. The
+  "розрив" story (contracts with no payment) stays in the existing breakdown/funnel panels.
+- `renderSankey` and its d3-sankey dependency are removed; the new `renderMagnitudes`
+  consumes the same `/api/sankey` payload (node values + `announced_eur`). The endpoint may
+  be renamed `/api/magnitudes`, keeping the same shape.
 
 ## Out of scope (follow-ups)
 

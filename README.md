@@ -19,7 +19,7 @@ Most reconstruction money reaches Ukraine as **budget support** (transfers to th
 - TED's `company_reg_number` is the **buyer's** national organisation ID (typically an EU institution's identifier), not a Ukrainian EDRPOU.
 - A TED → ProZorro → spending Sankey built on a direct ID join would have a near-empty left side for most realistic queries.
 
-The **strong, verifiable join** is **ProZorro ↔ spending on shared EDRPOU** (Ukrainian company registration number). TED is surfaced only where a supplier's normalised name and CPV division match genuinely appear in both datasets, and the match is tagged with a confidence score (`1.0` when matched, `null` otherwise). The Sankey's left node ("Оголошено (TED)") shows aggregated EUR amounts for context; the structural flow is ProZorro → payments.
+The **strong, verifiable join** is **ProZorro ↔ spending on shared EDRPOU** (Ukrainian company registration number). TED is attached as an overlay on the **same key**: TED's `organisation-identifier-tenderer` carries the Ukrainian tenderer's EDRPOU (index-aligned with `organisation-country-tenderer`), so a notice is matched to a contract when that EDRPOU equals the supplier's, tagged with a confidence score (`1.0` when matched, `null` otherwise). EDRPOU is used rather than the company name because TED winner names are Latin-transliterated (`rostdorstroy`) while ProZorro names are Cyrillic (`РОСТДОРСТРОЙ`) and never match across scripts. The "Оголошено (TED)" magnitude bar shows aggregated EUR for context; the structural flow is ProZorro → payments.
 
 ---
 
@@ -63,7 +63,7 @@ uvicorn api.app:app --reload
 | `--target` | 500 | stop after this many in-scope contracts are collected |
 | `--scan-cap` | 1500 | hard cap on the total number of feed stubs scanned |
 
-**spending.gov.ua** — calls the real `/v2/api/transactions/` endpoint. Recipient EDRPOUs extracted from the kept contracts are batched 20 per request (`SPENDING_BATCH = 20`) and queried over the last 12 months, split into ≤90-day windows (`SPENDING_WINDOW_DAYS = 90`) to stay within the API's 92-day hard limit.
+**spending.gov.ua** — calls the real `/v2/api/transactions/` endpoint. Recipient EDRPOUs extracted from the kept contracts are batched 10 per request (`SPENDING_BATCH = 10` — the API rejects `recipt_edrpous` arrays longer than 10) and queried over the last 12 months, split into ≤90-day windows (`SPENDING_WINDOW_DAYS = 90`) to stay within the API's 92-day hard limit.
 
 All HTTP responses are cached under `data/cache/` (SHA-256-keyed, per `CachedClient`). **Re-runs are fast** — the network is only hit for cache misses.
 
@@ -88,7 +88,7 @@ The pull stays **non-fatal**: any TED error is caught, logged as `TED ingest ski
 |-------|--------|-----|
 | 1 — Ingest | `src/recovery/stage1_ingest.py` | Fetch ProZorro OCDS contracts, spending transactions (per EDRPOU), and TED notices; page through each source; persist raw JSON to `data/cache/` |
 | 2 — Normalize | `src/recovery/stage2_normalize.py` | Parse each source into typed Polars DataFrames; normalise EDRPOU (8-digit zero-padded), company names (strip legal forms, lowercase), CPV divisions |
-| 3 — Join | `src/recovery/stage3_join.py` | Left-join contracts to aggregated payments on EDRPOU (`join_core`); attach TED notices as overlay on `(supplier_name_norm, cpv_div)` (`attach_ted_overlay`) |
+| 3 — Join | `src/recovery/stage3_join.py` | Left-join contracts to aggregated payments on EDRPOU (`join_core`); attach TED notices as overlay on the tenderer's EDRPOU (`attach_ted_overlay`); build the `paid_by_year` side table (`build_paid_by_year`) |
 | 4 — Chain | `src/recovery/stage4_chain.py` | Tag each row with a `state` and write `chain.parquet`; compute the `funnel.parquet` count table |
 
 Supporting modules:

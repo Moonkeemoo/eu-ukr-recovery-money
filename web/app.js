@@ -6,12 +6,15 @@ const esc = (s) => (s ?? "").toString()
 const fmt = (n) => new Intl.NumberFormat("uk-UA").format(Math.round(n ?? 0));
 const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
-const state = { sector: "", region: "", gaps: [], gapSort: { key: "contract_amount_uah", dir: -1 } };
+const state = { sector: "", region: "", contractYear: "", paymentYear: "",
+  gaps: [], gapSort: { key: "contract_amount_uah", dir: -1 } };
 
 function q() {
   const p = new URLSearchParams();
   if (state.sector) p.set("sector", state.sector);
   if (state.region) p.set("region", state.region);
+  if (state.contractYear) p.set("contract_year", state.contractYear);
+  if (state.paymentYear) p.set("payment_year", state.paymentYear);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
@@ -220,6 +223,21 @@ async function initRegions() {
   } catch (e) { console.error(e); }
 }
 
+async function initYears() {
+  try {
+    const y = await getJSON("/api/years");
+    const fill = (id, vals) => {
+      const sel = document.getElementById(id);
+      (vals || []).forEach((v) => {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = v; sel.appendChild(o);
+      });
+    };
+    fill("contract-year", y.contract_years);
+    fill("payment-year", y.payment_years);
+  } catch (e) { console.error(e); }
+}
+
 function wire() {
   const onFilter = debounce(refresh, 150);
   document.getElementById("sector").addEventListener("change", (e) => {
@@ -227,6 +245,12 @@ function wire() {
   });
   document.getElementById("region").addEventListener("change", (e) => {
     state.region = e.target.value; onFilter();
+  });
+  document.getElementById("contract-year").addEventListener("change", (e) => {
+    state.contractYear = e.target.value; onFilter();
+  });
+  document.getElementById("payment-year").addEventListener("change", (e) => {
+    state.paymentYear = e.target.value; onFilter();
   });
   document.querySelectorAll("#gaps th[data-key]").forEach((th) =>
     th.addEventListener("click", () => {
@@ -249,5 +273,6 @@ function wire() {
 }
 
 initRegions();
+initYears();
 wire();
 refresh();

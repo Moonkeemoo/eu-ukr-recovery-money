@@ -37,11 +37,22 @@ def test_normalize_spending():
 def test_normalize_ted():
     raw = _load("ted_page.json")["notices"]
     df = normalize_ted(raw)
-    row = df.to_dicts()[0]
-    assert row["ted_id"] == "00654321-2025"
-    assert row["cpv_div"] == "45"
-    assert row["winner_name_norm"] == "bud"
-    assert row["amount_eur"] == 500000
+    rows = df.to_dicts()
+    eur = rows[0]
+    assert eur["ted_id"] == "00654321-2025"
+    # Array-valued TED fields collapse to their first element (cpv -> division).
+    assert eur["cpv"] == "45233140"
+    assert eur["cpv_div"] == "45"
+    assert eur["winner_name_norm"] == "bud"
+    assert eur["region"] == "UA"
+    # winner-country prefers the Ukrainian entry when a notice lists several winners.
+    assert eur["winner_country"] == "UKR"
+    assert eur["amount_eur"] == 500000
+
+    # total-value is trusted as EUR only when total-value-cur says so (honest currency).
+    pln = rows[1]
+    assert pln["ted_id"] == "00777000-2025"
+    assert pln["amount_eur"] is None
 
 
 def test_normalize_empty_input_keeps_schema():

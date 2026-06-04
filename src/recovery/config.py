@@ -21,6 +21,21 @@ PROZORRO_OCDS = "https://public-api.prozorro.gov.ua/api/2.5"
 SPENDING_API = "https://api.spending.gov.ua/api"
 TED_SEARCH = "https://api.ted.europa.eu/v3/notices/search"
 
+# TED v3 expert-search requires a non-empty `fields` list of valid field names.
+# These are the only names normalize_ted consumes. `winner-name`/`value` from
+# earlier drafts do NOT exist (caused HTTP 400), and `winner-partname` comes back
+# empty — the supplier name actually lives in `organisation-name-tenderer`, a
+# {lang: [names]} dict index-aligned with `organisation-country-tenderer`.
+TED_FIELDS = (
+    "publication-number",
+    "classification-cpv",
+    "organisation-name-tenderer",
+    "organisation-country-tenderer",
+    "total-value",
+    "total-value-cur",
+    "place-of-performance",
+)
+
 
 def cpv_in_scope(cpv: str | None) -> bool:
     """True if a CPV code belongs to a reconstruction division."""

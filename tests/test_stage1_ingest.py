@@ -123,8 +123,14 @@ def test_pull_spending_batches_edrpous_and_windows(tmp_path):
 @respx.mock
 def test_pull_ted_returns_records(tmp_path):
     page = json.loads((FIX / "ted_page.json").read_text(encoding="utf-8"))
-    respx.post(url__startswith="https://api.ted.europa.eu").mock(
+    route = respx.post(url__startswith="https://api.ted.europa.eu").mock(
         return_value=httpx.Response(200, json=page)
     )
     records = pull_ted(cache_dir=tmp_path, max_pages=1)
     assert records[0]["publication-number"] == "00654321-2025"
+    # Regression guard for the HTTP 400: the v3 endpoint rejects a request whose
+    # `fields` list is empty, so it must always be sent non-empty, and the query
+    # must scope to Ukrainian winners.
+    body = json.loads(route.calls[0].request.content)
+    assert body["fields"]
+    assert "winner-country=UKR" in body["query"]

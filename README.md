@@ -67,9 +67,14 @@ uvicorn api.app:app --reload
 
 All HTTP responses are cached under `data/cache/` (SHA-256-keyed, per `CachedClient`). **Re-runs are fast** — the network is only hit for cache misses.
 
-### TED is deferred and non-fatal
+### TED is a live overlay (still non-fatal)
 
-The TED v3 search endpoint currently returns HTTP 400 for our CPV query format. `run.py` catches the error, logs `TED ingest skipped (non-fatal): ...`, and completes normally on ProZorro + spending data. The Sankey's "Оголошено (TED)" left node will simply be empty until the TED request format is resolved.
+`run.py` pulls TED via the v3 expert-search POST endpoint, scoped to reconstruction CPVs **won by Ukrainian entities** (`(classification-cpv=45* OR …) AND winner-country=UKR`). Two non-obvious requirements of the v3 API:
+
+- The request body **must** include a non-empty `fields` list (an empty/absent list returns `HTTP 400 — field "fields" must not be empty`).
+- The supplier name is **not** in `winner-partname` (that field comes back empty). It lives in `organisation-name-tenderer`, a `{lang: [names]}` dict that is index-aligned with `organisation-country-tenderer`; `normalize_ted` picks the name at the first `UKR` position. `amount_eur` is only populated when `total-value-cur == EUR` (other currencies stay `null` rather than being mixed in).
+
+The pull stays **non-fatal**: any TED error is caught, logged as `TED ingest skipped (non-fatal): ...`, and the pipeline completes on ProZorro + spending alone (the "Оголошено (TED)" node simply renders empty).
 
 ### Bounded sample — not the full corpus
 

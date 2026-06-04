@@ -18,9 +18,11 @@ def test_pipeline_writes_chain(tmp_path, monkeypatch):
             "recipt_name": "ТОВ \"Шлях\"", "amount": 750000,
             "trans_date": "2025-10-15", "payment_details": "ремонт"}])
     monkeypatch.setattr(run_module.stage1, "pull_ted",
-        lambda **k: [{"publication-number": "t1", "classification-cpv": "45233140",
-            "winner-name": "Шлях", "winner-country": "UA", "value": 500000,
-            "place-of-performance": "UA"}])
+        lambda **k: [{"publication-number": "t1", "classification-cpv": ["45233140"],
+            "organisation-name-tenderer": {"eng": ["Шлях"]},
+            "organisation-country-tenderer": ["UKR"],
+            "total-value": 500000, "total-value-cur": "EUR",
+            "place-of-performance": ["UA"]}])
 
     run_module.main(target=1, scan_cap=1)
 

@@ -58,19 +58,52 @@ def normalize_spending(raw: list[dict]) -> pl.DataFrame:
     return pl.DataFrame(rows, schema=_SPENDING_SCHEMA)
 
 
+def _first(value):
+    """TED v3 returns most fields as arrays; collapse to the first scalar element."""
+    if isinstance(value, list):
+        return value[0] if value else None
+    return value
+
+
+def _ukr_tenderer_name(notice: dict) -> str | None:
+    """Name of the first Ukrainian tenderer in a TED notice.
+
+    `organisation-name-tenderer` is a ``{lang: [names]}`` dict whose name list is
+    index-aligned with `organisation-country-tenderer`. We pick the name at the
+    first position whose country is ``UKR`` (the list also includes losing
+    bidders, which is acceptable for a confidence-tagged overlay).
+    """
+    names_by_lang = notice.get("organisation-name-tenderer") or {}
+    if isinstance(names_by_lang, dict):
+        names = next(iter(names_by_lang.values()), []) if names_by_lang else []
+    else:
+        names = names_by_lang
+    names = names if isinstance(names, list) else [names]
+    countries = notice.get("organisation-country-tenderer") or []
+    countries = countries if isinstance(countries, list) else [countries]
+    for name, country in zip(names, countries):
+        if country == "UKR":
+            return name
+    return None
+
+
 def normalize_ted(raw: list[dict]) -> pl.DataFrame:
     rows = []
     for r in raw:
-        cpv = r.get("classification-cpv")
-        name = r.get("winner-name")
+        cpv = _first(r.get("classification-cpv"))
+        name = _ukr_tenderer_name(r)
+        # total-value is only trustworthy as EUR when the currency field confirms it.
+        amount_eur = _first(r.get("total-value"))
+        if _first(r.get("total-value-cur")) != "EUR":
+            amount_eur = None
         rows.append({
             "ted_id": r.get("publication-number"),
             "cpv": cpv,
             "cpv_div": cpv_division(cpv),
             "winner_name": name,
             "winner_name_norm": normalize_company_name(name),
-            "winner_country": r.get("winner-country"),
-            "amount_eur": r.get("value"),
-            "region": r.get("place-of-performance"),
+            "winner_country": "UKR" if name else None,
+            "amount_eur": amount_eur,
+            "region": _first(r.get("place-of-performance")),
         })
     return pl.DataFrame(rows, schema=_TED_SCHEMA)

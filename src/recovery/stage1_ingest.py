@@ -91,15 +91,23 @@ def pull_spending(cache_dir: Path, edrpous: list[str],
 
 
 def pull_ted(cache_dir: Path, max_pages: int = 50) -> list[dict]:
-    """Pull TED notices for reconstruction CPVs via the v3 search POST endpoint."""
+    """Pull TED notices for reconstruction CPVs won by Ukrainian entities.
+
+    Uses the v3 expert-search POST endpoint. The reconstruction-CPV firehose
+    spans the whole EU, but the project's join only matches Ukrainian suppliers,
+    so the query is scoped to `winner-country=UKR` — the overlay only carries
+    notices that can realistically link to a ProZorro contract.
+    """
     out: list[dict] = []
     with CachedClient(cache_dir / "ted") as client:
         cpv_expr = " OR ".join(f"classification-cpv={d}*" for d in config.CPV_DIVISIONS)
+        query = f"({cpv_expr}) AND winner-country=UKR"
         page = 1
         while page <= max_pages:
             data = client.post_json(
                 config.TED_SEARCH,
-                {"query": cpv_expr, "page": page, "limit": 100},
+                {"query": query, "fields": list(config.TED_FIELDS),
+                 "page": page, "limit": 100},
             )
             rows = data.get("notices") or []
             if not rows:

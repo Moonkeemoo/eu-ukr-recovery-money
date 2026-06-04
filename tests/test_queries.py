@@ -4,6 +4,7 @@ import polars as pl
 import pytest
 
 from recovery.queries import sankey, kpi, supplier, gaps, funnel
+from recovery import queries
 
 
 def _seed(out_dir: Path):
@@ -146,3 +147,47 @@ def test_gaps_filtered_by_sector(tmp_path):
     assert len(rows) == 1
     assert rows[0]["contract_id"] == "c2"
     assert rows[0]["supplier_edrpou"] == "2"
+
+
+def _write_chain(tmp_path, rows):
+    pl.DataFrame(rows).write_parquet(Path(tmp_path) / "chain.parquet")
+
+
+def test_kpi_filters_by_contract_year(tmp_path):
+    _write_chain(tmp_path, [
+        {"contract_id": "c1", "supplier_edrpou": "1", "supplier_name": "A", "cpv_div": "45",
+         "region": "Київ", "contract_year": 2023, "contract_amount_uah": 100.0,
+         "paid_amount_uah": 10.0, "ted_amount_eur": None, "ted_id": None,
+         "ted_match_confidence": None, "state": "payment_no_ted"},
+        {"contract_id": "c2", "supplier_edrpou": "2", "supplier_name": "B", "cpv_div": "45",
+         "region": "Київ", "contract_year": 2024, "contract_amount_uah": 200.0,
+         "paid_amount_uah": 20.0, "ted_amount_eur": None, "ted_id": None,
+         "ted_match_confidence": None, "state": "payment_no_ted"},
+    ])
+    assert queries.kpi(tmp_path, contract_year=2023)["contracted_uah"] == 100
+
+
+def test_kpi_payment_year_uses_year_specific_paid(tmp_path):
+    _write_chain(tmp_path, [
+        {"contract_id": "c1", "supplier_edrpou": "1", "supplier_name": "A", "cpv_div": "45",
+         "region": "Київ", "contract_year": 2023, "contract_amount_uah": 100.0,
+         "paid_amount_uah": 30.0, "ted_amount_eur": None, "ted_id": None,
+         "ted_match_confidence": None, "state": "payment_no_ted"},
+    ])
+    pl.DataFrame({"contract_id": ["c1", "c1"], "year": [2023, 2024], "paid_uah": [10.0, 20.0]}) \
+        .write_parquet(Path(tmp_path) / "paid_by_year.parquet")
+    assert queries.kpi(tmp_path, payment_year=2024)["paid_uah"] == 20
+
+
+def test_years_lists_contract_and_payment_years(tmp_path):
+    _write_chain(tmp_path, [
+        {"contract_id": "c1", "supplier_edrpou": "1", "supplier_name": "A", "cpv_div": "45",
+         "region": "Київ", "contract_year": 2023, "contract_amount_uah": 100.0,
+         "paid_amount_uah": 0.0, "ted_amount_eur": None, "ted_id": None,
+         "ted_match_confidence": None, "state": "contract_no_payment"},
+    ])
+    pl.DataFrame({"contract_id": ["c1"], "year": [2024], "paid_uah": [5.0]}) \
+        .write_parquet(Path(tmp_path) / "paid_by_year.parquet")
+    out = queries.years(tmp_path)
+    assert out["contract_years"] == [2023]
+    assert out["payment_years"] == [2024]

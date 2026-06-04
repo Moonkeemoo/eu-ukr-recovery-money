@@ -62,6 +62,8 @@ rows = [
          ted_amount_eur=None, ted_id=None, ted_match_confidence=None,
          state="contract_no_payment"),
 ]
+for r in rows:
+    r["contract_year"] = int(r["contract_id"].split("-")[1])
 pl.DataFrame(rows).write_parquet(config.OUT_DIR / "chain.parquet")
 
 n = len(rows)
@@ -72,6 +74,14 @@ pl.DataFrame([
     {"step": "with_payment", "count": paid},
     {"step": "with_ted_overlay", "count": ted},
 ]).write_parquet(config.OUT_DIR / "funnel.parquet")
+
+paid_rows = [
+    {"contract_id": r["contract_id"], "year": r["contract_year"],
+     "paid_uah": float(r["paid_amount_uah"])}
+    for r in rows if r["paid_amount_uah"] > 0
+]
+pl.DataFrame(paid_rows, schema={"contract_id": pl.Utf8, "year": pl.Int64, "paid_uah": pl.Float64}) \
+    .write_parquet(config.OUT_DIR / "paid_by_year.parquet")
 
 print(f"Seeded {n} demo chain rows ({paid} paid, {ted} with TED, "
       f"{n - paid} breaks) -> {config.OUT_DIR}")

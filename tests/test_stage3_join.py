@@ -1,6 +1,19 @@
 import polars as pl
 
-from recovery.stage3_join import join_core, attach_ted_overlay
+from recovery.stage3_join import join_core, attach_ted_overlay, build_paid_by_year
+
+
+def test_build_paid_by_year_tolerates_malformed_date():
+    contracts = pl.DataFrame({"contract_id": ["c1"], "supplier_edrpou": ["111"]})
+    spending = pl.DataFrame({
+        "recipient_edrpou": ["111", "111"],
+        "amount_uah": [10.0, 5.0],
+        "payment_date": ["2024-03-01", "n/a"],  # second row has a junk date
+    })
+    out = build_paid_by_year(contracts, spending)  # must not raise
+    years = set(out["year"].to_list())
+    assert 2024 in years   # good row parsed
+    assert None in years   # junk row degraded to a null year, not a crash
 
 
 def test_join_core_matches_on_edrpou():
@@ -39,6 +52,25 @@ def test_attach_ted_overlay():
     row2 = by_id["c2"]
     assert row2["ted_match_confidence"] is None
     assert row2["ted_id"] is None
+
+
+def test_build_paid_by_year_aggregates_per_contract_and_year():
+    contracts = pl.DataFrame({
+        "contract_id": ["c1", "c2"],
+        "supplier_edrpou": ["111", "222"],
+    })
+    spending = pl.DataFrame({
+        "recipient_edrpou": ["111", "111", "222"],
+        "amount_uah": [10.0, 5.0, 7.0],
+        "payment_date": ["2024-03-01", "2025-01-09", "2024-12-31"],
+    })
+    out = build_paid_by_year(contracts, spending).sort(["contract_id", "year"])
+    rows = out.to_dicts()
+    assert rows == [
+        {"contract_id": "c1", "year": 2024, "paid_uah": 10.0},
+        {"contract_id": "c1", "year": 2025, "paid_uah": 5.0},
+        {"contract_id": "c2", "year": 2024, "paid_uah": 7.0},
+    ]
 
 
 def test_ted_overlay_ignores_empty_names():

@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Гроші на відбудову України</title>
   <link rel="stylesheet" href="/static/styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-  <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
 </head>
 <body>
   <header>
@@ -26,6 +24,12 @@
       <label>Регіон:
         <select id="region"><option value="">усі</option></select>
       </label>
+      <label>Рік контракту:
+        <select id="contract-year"><option value="">усі</option></select>
+      </label>
+      <label>Рік виплати:
+        <select id="payment-year"><option value="">усі</option></select>
+      </label>
     </div>
   </header>
 
@@ -38,9 +42,9 @@
     </div>
 
     <section>
-      <h2>Фінансовий слід (Sankey)</h2>
-      <svg id="sankey"></svg>
-      <div class="empty" id="sankey-note"></div>
+      <h2>Фінансовий слід (масштаби, грн / €)</h2>
+      <div id="magnitudes"></div>
+      <div class="empty" id="magnitudes-note"></div>
     </section>
 
     <div class="two-col">

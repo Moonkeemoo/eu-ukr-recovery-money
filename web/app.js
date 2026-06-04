@@ -4,14 +4,16 @@ const esc = (s) => (s ?? "").toString()
   .replace(/&/g, "&amp;").replace(/</g, "&lt;")
   .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const fmt = (n) => new Intl.NumberFormat("uk-UA").format(Math.round(n ?? 0));
-const pct = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0);
 
-const state = { sector: "", region: "", gaps: [], gapSort: { key: "contract_amount_uah", dir: -1 } };
+const state = { sector: "", region: "", contractYear: "", paymentYear: "",
+  gaps: [], gapSort: { key: "contract_amount_uah", dir: -1 } };
 
 function q() {
   const p = new URLSearchParams();
   if (state.sector) p.set("sector", state.sector);
   if (state.region) p.set("region", state.region);
+  if (state.contractYear) p.set("contract_year", state.contractYear);
+  if (state.paymentYear) p.set("payment_year", state.paymentYear);
   const s = p.toString();
   return s ? `?${s}` : "";
 }
@@ -36,15 +38,14 @@ function skeleton(el, lines = 3) {
 
 function renderKpi(k) {
   const el = document.getElementById("kpi");
-  const share = pct(k.paid_uah, k.contracted_uah);
   el.innerHTML = `
     <div class="kpi"><div class="label">Оголошено (TED), €</div>
       <div class="value">${fmt(k.announced_eur)}</div></div>
     <div class="kpi"><div class="label">Законтрактовано, грн</div>
       <div class="value">${fmt(k.contracted_uah)}</div></div>
-    <div class="kpi"><div class="label">Виплачено, грн</div>
+    <div class="kpi"><div class="label">Надходження постачальникам, грн</div>
       <div class="value">${fmt(k.paid_uah)}</div>
-      <div class="sub">${share}% від законтрактованого</div></div>
+      <div class="sub">усі казначейські виплати виконавцям, не лише за ці контракти</div></div>
     <div class="kpi break"><div class="label">Обриви (контракт без виплати)</div>
       <div class="value">${fmt(k.breaks)}</div></div>`;
 }
@@ -78,39 +79,21 @@ function renderStateBars(rows) {
     .join("");
 }
 
-function renderSankey(data) {
-  const svg = d3.select("#sankey");
-  svg.selectAll("*").remove();
-  const note = document.getElementById("sankey-note");
-  note.textContent = data.announced_eur
-    ? `Ліва частина (TED) показана для довідки: оголошено €${fmt(data.announced_eur)}. Потік масштабується в грн.`
-    : "TED-сторона порожня для цього зрізу — типово для бюджетної підтримки (див. README).";
-  const total = (data.links || []).reduce((s, l) => s + l.value, 0);
-  if (!total) { return; }
-  const width = document.getElementById("sankey").clientWidth || 880;
-  const height = 320;
-  const { nodes, links } = d3.sankey()
-    .nodeWidth(18).nodePadding(20)
-    .extent([[1, 1], [width - 1, height - 20]])({
-      nodes: data.nodes.map((d) => ({ ...d })),
-      links: data.links.map((d) => ({ ...d })),
-    });
-  svg.attr("viewBox", `0 0 ${width} ${height}`);
-  svg.append("g").selectAll("rect").data(nodes).join("rect")
-    .attr("x", (d) => d.x0).attr("y", (d) => d.y0)
-    .attr("height", (d) => Math.max(1, d.y1 - d.y0))
-    .attr("width", (d) => d.x1 - d.x0).attr("fill", "#2563eb")
-    .append("title").text((d) => d.name);
-  svg.append("g").attr("fill", "none").selectAll("path").data(links).join("path")
-    .attr("d", d3.sankeyLinkHorizontal())
-    .attr("stroke", "#93c5fd").attr("stroke-width", (d) => Math.max(1, d.width))
-    .attr("opacity", .6)
-    .append("title").text((d) => `${fmt(d.value)} грн`);
-  svg.append("g").selectAll("text").data(nodes).join("text")
-    .attr("x", (d) => (d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6))
-    .attr("y", (d) => (d.y1 + d.y0) / 2).attr("dy", "0.35em")
-    .attr("text-anchor", (d) => (d.x0 < width / 2 ? "start" : "end"))
-    .text((d) => d.name).style("font-size", "12px");
+function renderMagnitudes(data) {
+  const el = document.getElementById("magnitudes");
+  const note = document.getElementById("magnitudes-note");
+  const contracted = data.links?.[0]?.value || 0;
+  const paid = data.links?.[1]?.value || 0;
+  const announced = data.announced_eur || 0;
+  const uahMax = Math.max(contracted, paid, 1);
+  el.innerHTML =
+    bar("Законтрактовано", contracted, uahMax, "funnel", `${fmt(contracted)} грн`) +
+    bar("Надходження постачальникам", paid, uahMax, "payment_no_ted", `${fmt(paid)} грн`) +
+    bar("Оголошено (TED)", announced, Math.max(announced, 1), "full", `€${fmt(announced)}`);
+  note.textContent =
+    "Суми у грн і € показані окремими шкалами. «Надходження» — усі казначейські виплати " +
+    "постачальникам (дані не містять прив'язки до конкретного контракту), тому можуть " +
+    "перевищувати законтрактовану суму.";
 }
 
 function renderTopSuppliers(rows) {
@@ -197,7 +180,7 @@ async function refresh() {
     renderKpi(kpi);
     renderFunnel(funnel);
     renderStateBars(brk);
-    renderSankey(sankey);
+    renderMagnitudes(sankey);
     renderTopSuppliers(sup);
     renderTopRegions(reg);
     renderGaps(gaps);
@@ -220,6 +203,21 @@ async function initRegions() {
   } catch (e) { console.error(e); }
 }
 
+async function initYears() {
+  try {
+    const y = await getJSON("/api/years");
+    const fill = (id, vals) => {
+      const sel = document.getElementById(id);
+      (vals || []).forEach((v) => {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = v; sel.appendChild(o);
+      });
+    };
+    fill("contract-year", y.contract_years);
+    fill("payment-year", y.payment_years);
+  } catch (e) { console.error(e); }
+}
+
 function wire() {
   const onFilter = debounce(refresh, 150);
   document.getElementById("sector").addEventListener("change", (e) => {
@@ -227,6 +225,12 @@ function wire() {
   });
   document.getElementById("region").addEventListener("change", (e) => {
     state.region = e.target.value; onFilter();
+  });
+  document.getElementById("contract-year").addEventListener("change", (e) => {
+    state.contractYear = e.target.value; onFilter();
+  });
+  document.getElementById("payment-year").addEventListener("change", (e) => {
+    state.paymentYear = e.target.value; onFilter();
   });
   document.querySelectorAll("#gaps th[data-key]").forEach((th) =>
     th.addEventListener("click", () => {
@@ -239,15 +243,9 @@ function wire() {
   document.getElementById("modal-backdrop").addEventListener("click", (e) => {
     if (e.target.id === "modal-backdrop") close();
   });
-  let rt;
-  let sankeyObserved = false;
-  new ResizeObserver(() => {
-    if (!sankeyObserved) { sankeyObserved = true; return; }  // skip initial fire; refresh() does first render
-    clearTimeout(rt);
-    rt = setTimeout(() => getJSON(`/api/sankey${q()}`).then(renderSankey).catch(() => {}), 120);
-  }).observe(document.getElementById("sankey"));
 }
 
 initRegions();
+initYears();
 wire();
 refresh();

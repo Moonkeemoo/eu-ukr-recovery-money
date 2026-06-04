@@ -14,6 +14,7 @@ def build_chain(joined: pl.DataFrame) -> pl.DataFrame:
     )
     return joined.with_columns(state.alias("state")).select(
         "contract_id", "supplier_edrpou", "supplier_name", "cpv_div", "region",
+        "contract_year",
         "contract_amount_uah", "paid_amount_uah",
         pl.col("amount_eur").alias("ted_amount_eur"),
         "ted_id", "ted_match_confidence", "state",
